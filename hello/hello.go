@@ -12,7 +12,6 @@ import (
 	"io"
 	"io/fs"
 	"log"
-	"log/syslog"
 	"math"
 	"math/rand"
 	"net"
@@ -1304,10 +1303,14 @@ func closeFile(f *os.File) {
 		os.Exit(1)
 	}
 }
+
+// TODO: доработать  под Windows
 func funcDefer() {
 
 	fmt.Println("\nDefer")
-
+	if Os == "windows" {
+		return
+	}
 	// Сразу же после получения объекта файла с помощью createFile мы откладываем закрытие этого файла с помощью closeFile.
 	// Она будет выполнена в конце включающей функции (main) после завершения writeFile.
 	f := createFile("/tmp/defer.txt")
@@ -1315,6 +1318,7 @@ func funcDefer() {
 	writeFile(f)
 
 	// Если программа вышла по os.Exit(), то defer не будет выполнен
+
 }
 
 // Строковые функции
@@ -1449,16 +1453,18 @@ func funcTime() {
 	// Пауза в миллисекундах
 	time.Sleep(1000 * time.Millisecond)
 
-	// Начнем с получения текущего времени
-	now := time.Now()
-	p(now)
-
 	// Вы можете построить структуру time, указав год, месяц, день и т.д.
 	// Время всегда связано с местоположением, т.е. часовым поясом.
 	utc, err := time.LoadLocation("Europe/Moscow")
 	if err != nil {
 		utc = time.Local
 	}
+
+	// Начнем с получения текущего времени
+	now := time.Now()
+	p(now)
+	fmt.Printf("Now is: %02d%02d-%02d%02d\n", now.Month(), now.Day(), now.Minute(), now.Second())
+
 	then := time.Date(2022, 6, 9, 17, 10, 58, 651387237, utc)
 	p(then)
 
@@ -1639,7 +1645,9 @@ func funcUrl() {
 
 // выполнение POST-запроса с параметрами и заголовком
 func funcPost() (string, error) {
-
+	if Os == "windows" {
+		return "", nil
+	}
 	fmt.Println("\nPOST query")
 	hc := http.Client{}
 	url := "https://api.ng.unilight.su/v0.1/object/get/cabinet/info"
@@ -1692,7 +1700,9 @@ func check(e error) {
 func funcFileRead() {
 
 	fmt.Println("\nFileRead")
-
+	if Os == "windows" {
+		return
+	}
 	// Возможно, самая основная задача чтения файлов - это сохранение всего содержимого файла в памяти.
 	// ReadFile читает файл целиком, ошибка EOF не выбрасывается. os.File не создается.
 	dat, err := os.ReadFile("/tmp/dat")
@@ -1811,7 +1821,9 @@ func funcFileRead() {
 func funcFileWrite() {
 
 	fmt.Println("\nFileWrite")
-
+	if Os == "windows" {
+		return
+	}
 	// В этом примере показано вот как записать строку (или только байты) в файл.
 	d1 := []byte("hello\nГеоргий\n")          // строка приводится к срезу байтов
 	err := os.WriteFile("/tmp/dat", d1, 0644) //filename string, data []byte, permission fs.FileMode
@@ -2402,19 +2414,21 @@ func funcInput() {
 	}()
 }
 
+// в Windows не работает
 func funcSyslog() {
 	fmt.Println("\nЗапись в syslog")
-
-	sysLog, err := syslog.New(syslog.LOG_WARNING|syslog.LOG_LOCAL7, "gsb_tag")
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	fmt.Fprintf(sysLog, "This is a daemon %s with gsb_tag with fmt.Printf.", "WARNING")
-	sysLog.Emerg("Это emergency запись с тегом gsb_tag с syslog.Emerg.")
-	sysLog.Info("Инфо запись в лог syslog.Info")
-	// читаем в логе:
-	// cat /var/log/local7.log | grep gsb_tag
+	/*
+		sysLog, err := syslog.New(syslog.LOG_WARNING|syslog.LOG_LOCAL7, "gsb_tag")
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		fmt.Fprintf(sysLog, "This is a daemon %s with gsb_tag with fmt.Printf.", "WARNING")
+		sysLog.Emerg("Это emergency запись с тегом gsb_tag с syslog.Emerg.")
+		sysLog.Info("Инфо запись в лог syslog.Info")
+		// читаем в логе:
+		// cat /var/log/local7.log | grep gsb_tag
+	*/
 }
 
 /*
