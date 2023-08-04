@@ -32,7 +32,7 @@ import (
 	"github.com/matishsiao/goInfo"
 )
 
-const Version string = "v0.1.8"
+const Version string = "v0.1.9"
 
 var Os string = ""
 
@@ -770,7 +770,7 @@ func worker(id int, wg *sync.WaitGroup) {
 	fmt.Printf("Worker %d starting\n", id)
 
 	//Sleep симулирует долгую задачу.
-	time.Sleep(time.Second)
+	time.Sleep(5 * time.Second)
 	fmt.Printf("Worker %d done\n", id)
 
 	//Оповестить WaitGroup что воркер выполнился
@@ -883,9 +883,34 @@ func worker_func(done chan bool) {
 // Select
 // select позволяет вам ждать нескольких операций на канале.
 // select c default является неблокируемым, если нет готовых условий для case выполняется default
+func Generator() chan int {
+	ch := make(chan int)
+	go func() {
+		n := 1
+		for {
+			// select блокируется до тех пор, пока один из его блоков case не будет готов к запуску,
+			// а затем выполняет этот блок. Если сразу несколько блоков могут быть запущены,
+			// то выбирается произвольный.
+			select {
+			case ch <- n: // после закрытия канала этот case не будет выполняться,
+				// поэтому паники от записи в закрытй канал не возникнет
+				n++
+			case <-ch:
+				return
+			}
+		}
+	}()
+	return ch
+}
+
 func funcSelect() {
 
 	fmt.Println("\nSelect")
+
+	number := Generator()
+	fmt.Println(<-number)
+	fmt.Println(<-number)
+	close(number)
 
 	//В нашем примере мы будем выбирать между двумя каналами.
 	c1 := make(chan string)
