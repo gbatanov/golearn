@@ -31,10 +31,10 @@ import (
 	"syscall"
 	"time"
 
-	"golearn/hello/nfs/rpc"
-	"golearn/hello/nfs/util"
+	"work/golearn/hello/nfs/rpc"
+	"work/golearn/hello/nfs/util"
 
-	"golearn/hello/nfs"
+	"work/golearn/hello/nfs"
 
 	"github.com/matishsiao/goInfo"
 )
@@ -58,11 +58,12 @@ func main() {
 		funcSwitch()
 		funcArrays()
 		funcSlices()
-		funcMap()
-		funcRange()
-		funcClosure()
-
-		funcInterface()
+	*/
+	funcMap()
+	funcRange()
+	funcClosure()
+	funcInterface()
+	/*
 		funcErrors()
 		funcGorutine()
 		funcChannel()
@@ -76,13 +77,15 @@ func main() {
 		funcDefer()
 		funcStrings()
 		funcJsonToArray()
-		funcTime()
+	*/
+	funcTime()
+	/*
 		funcNumberParsing()
 		func4byteToFloat()
-
-		funcUrl()
-		funcPost()
-
+	*/
+	funcUrl()
+	funcPost()
+	/*
 		funcFileWrite()
 		funcFileRead()
 
@@ -96,12 +99,13 @@ func main() {
 		funcSignal()
 		//	funcGoWithC()
 		funcBase64()
+		funcRandom()
+
+		funcConnectToShare()
+
+		funcExit(0)
+		funcExit(2)
 	*/
-	funcConnectToShare()
-
-	funcExit(0)
-	funcExit(2)
-
 }
 
 // Функции в Go не имеют аргументов "по умолчанию"
@@ -109,7 +113,7 @@ func main() {
 func getOsParams() {
 	gi, _ := goInfo.GetInfo()
 	gi.VarDump()
-	Os = gi.GoOS
+	Os = gi.GoOS // "windows"
 }
 
 // Типы данных
@@ -739,7 +743,8 @@ func isSameType(a, b interface{}) bool {
 }
 
 // Ошибки
-// Стандартная библиотека предоставляет две встроенные функции для создания ошибок: errors.New и fmt.Errorf.
+// Стандартная библиотека предоставляет две встроенные функции для создания ошибок:
+// errors.New и fmt.Errorf.
 func funcErrPrim(arg int) (int, error) {
 	if arg == 43 {
 		err := fmt.Errorf("error occurred at: %v", time.Now())
@@ -754,6 +759,7 @@ func funcErrPrim(arg int) (int, error) {
 }
 func funcErrors() {
 	fmt.Println("\nErrors")
+
 	r1, e1 := funcErrPrim(42)
 	if e1 != nil {
 		fmt.Println(e1)
@@ -1475,14 +1481,14 @@ func funcTime() {
 		p(err)
 	}
 	p("Unmarshal:")
-	p(d.DateTime)
+	p(d.DateTime) //1900-01-01 12:00:04 +0000 UTC
 
 	b, err := json.Marshal(d)
 	if err != nil {
 		p(err)
 	}
 	p("Marshal:")
-	p(string(b))
+	p(string(b)) //{"DateTime":"1900-01-01 12:00:04"}
 	p("")
 	////////
 
@@ -1498,58 +1504,58 @@ func funcTime() {
 
 	// Начнем с получения текущего времени
 	now := time.Now()
-	p(now)
-	fmt.Printf("Now is: %02d%02d-%02d%02d\n", now.Month(), now.Day(), now.Minute(), now.Second())
+	p(now)                                                                                        //2023-10-16 13:22:14.2225887 +0300 MSK m=+1.044650701
+	fmt.Printf("Now is: %02d%02d-%02d%02d\n", now.Month(), now.Day(), now.Minute(), now.Second()) //Now is: 1016-2214
 
 	then := time.Date(2022, 6, 9, 17, 10, 58, 651387237, utc)
-	p(then)
+	p(then) //2022-06-09 17:10:58.651387237 +0300 MSK
 
 	// Вы можете извлечь различные компоненты значения времени.
-	p(then.Year())
-	p(then.Month())
-	p(then.Day())
-	p(then.Hour())
-	p(then.Minute())
-	p(then.Second())
-	p(then.Nanosecond())
-	p(then.Location())
+	p(then.Year())       //2022
+	p(then.Month())      //June
+	p(then.Day())        //9
+	p(then.Hour())       //17
+	p(then.Minute())     //10
+	p(then.Second())     //58
+	p(then.Nanosecond()) //651387237
+	p(then.Location())   //Europe/Moscow
 
 	// Получения дня недели доступно через метод Weekday.
-	p(then.Weekday())
+	p(then.Weekday()) //Thursday
 
 	// Эти методы сравниваются два момента времени, проверяя, происходит ли первый случай до,
 	// после или одновременно со вторым, соответственно.
-	p(then.Before(now))
-	p(then.Equal(now))
-	p(then.After(now))
+	p(then.Before(now)) //true
+	p(then.Equal(now))  //false
+	p(then.After(now))  //false
 
 	// Метод Sub возвращает Duration, интервал между двумя временами.
 	diff := now.Sub(then)
-	p("diff: ", diff)
+	p("diff: ", diff) //diff:  11852h11m15.571201463s
 
 	// Мы можем вычислить продолжительность.
-	p("diff.Hours", diff.Hours())
-	p("diff.Minutes", diff.Minutes())
-	p("diff.Seconds", diff.Seconds())
-	p("diff.Nanoseconds", diff.Nanoseconds())
+	p("diff.Hours", diff.Hours())             //diff.Hours 11852.187658667073
+	p("diff.Minutes", diff.Minutes())         //diff.Minutes 711131.2595200244
+	p("diff.Seconds", diff.Seconds())         //diff.Seconds 4.2667875571201466e+07
+	p("diff.Nanoseconds", diff.Nanoseconds()) //diff.Nanoseconds 42667875571201463
 
 	// Вы можете использовать Add, чтобы продвинуть время на заданную продолжительность, или с -, чтобы переместиться назад.
-	p("Then + diff:", then.Add(diff))
-	p("Then - diff:", then.Add(-diff))
+	p("Then + diff:", then.Add(diff))  //Then + diff: 2023-10-16 13:22:14.2225887 +0300 MSK
+	p("Then - diff:", then.Add(-diff)) //Then - diff: 2021-01-31 20:59:43.080185774 +0300 MSK
 
 	// Используйте Unix() или UnixNano(), чтобы получить время,
 	// прошедшее с начала эпохи Unix в секундах или наносекундах соответственно
 	// от заданного момента времени.
 	secs := now.Unix()
 	nanos := now.UnixNano()
-	fmt.Println("now: ", now)
+	fmt.Println("now: ", now) //2023-10-16 13:22:14.2225887 +0300 MSK m=+1.044650701
 
 	// Обратите внимание, что UnixMillis не существует, поэтому, чтобы получить миллисекунды с начала эпохи Unix,
 	// вам нужно будет вручную делить наносекунды.
 	millis := nanos / 1000000
-	fmt.Println("secs:   ", secs)
-	fmt.Println("millis: ", millis)
-	fmt.Println("nanos:  ", nanos)
+	fmt.Println("secs:   ", secs)   //1697451734
+	fmt.Println("millis: ", millis) //1697451734222
+	fmt.Println("nanos:  ", nanos)  // 1697451734222588700
 	fmt.Println("        ", 1655905090419043)
 
 	// Вы также можете конвертировать целые секунды или наносекунды Unixtime в соответствующее время.
@@ -1559,10 +1565,10 @@ func funcTime() {
 	t := time.Unix(1655905090419043/1000000, 0)
 	t2 := time.Unix(0, 1655905090419043*1000)
 
-	fmt.Println(t.Format(time.UnixDate))
-	fmt.Println(t.String())
-	fmt.Println(t2.Format(time.UnixDate))
-	fmt.Println(t2.String())
+	fmt.Println(t.Format(time.UnixDate))  //Wed Jun 22 16:38:10 MSK 2022
+	fmt.Println(t.String())               //2022-06-22 16:38:10 +0300 MSK
+	fmt.Println(t2.Format(time.UnixDate)) //Wed Jun 22 16:38:10 MSK 2022
+	fmt.Println(t2.String())              //2022-06-22 16:38:10.419043 +0300 MSK
 
 	fmt.Println()
 }
@@ -2448,6 +2454,13 @@ func funcInput() {
 			}
 		}
 	}()
+}
+func funcRandom() {
+	fmt.Println("\nRandom")
+	key := rand.Intn(5)
+	val := rand.Intn(100)
+	fmt.Println("Random 0-5", key)
+	fmt.Println("Random 0-100", val)
 }
 
 // в Windows не работает

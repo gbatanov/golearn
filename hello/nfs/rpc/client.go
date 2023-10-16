@@ -10,8 +10,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"golearn/hello/nfs/util"
-	"golearn/hello/nfs/xdr"
+	"work/golearn/hello/nfs/util"
+	"work/golearn/hello/nfs/xdr"
 )
 
 const (

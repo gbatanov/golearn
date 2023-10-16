@@ -4,8 +4,8 @@ import (
 	"errors"
 	"fmt"
 
-	"golearn/hello/nfs/rpc"
-	"golearn/hello/nfs/xdr"
+	"work/golearn/hello/nfs/rpc"
+	"work/golearn/hello/nfs/xdr"
 )
 
 const (

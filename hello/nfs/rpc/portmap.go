@@ -3,7 +3,7 @@ package rpc
 import (
 	"fmt"
 
-	"golearn/hello/nfs/xdr"
+	"work/golearn/hello/nfs/xdr"
 )
 
 // PORTMAP
