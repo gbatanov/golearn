@@ -10,6 +10,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+
 	"io"
 	"io/fs"
 	"io/ioutil"
@@ -36,10 +37,13 @@ import (
 
 	"work/golearn/hello/nfs"
 
+	"database/sql"
+
+	_ "github.com/lib/pq"
 	"github.com/matishsiao/goInfo"
 )
 
-const Version string = "v0.2.10"
+const Version string = "v0.2.11"
 
 var Os string = ""
 
@@ -48,63 +52,71 @@ func main() {
 
 	getOsParams()
 	/*
-		funcSyslog()
-		funcInput()
-		funcTypes()
-		funcStructures()
-		funcVariables()
-		funcConstant()
-		funcForIfElse()
-		funcSwitch()
-		funcArrays()
-		funcSlices()
-	*/
-	funcMap()
-	funcRange()
-	funcClosure()
-	funcInterface()
-	/*
-		funcErrors()
-		funcGorutine()
-		funcChannel()
-		funcSelect()
-		funcTimeout()
-		funcCloseChannel()
-		funcTimer()
-		funcWorkerPool()
-		funcAtomic()
-		funcMutex()
-		funcDefer()
-		funcStrings()
-		funcJsonToArray()
+			funcSyslog()
+			funcInput()
+			funcTypes()
+			funcStructures()
+			funcVariables()
+			funcConstant()
+			funcForIfElse()
+			funcSwitch()
+
+			funcArrays()
+			funcSlices()
+
+			funcMap()
+			funcRange()
+			funcClosure()
+
+		funcInterface()
+
+			funcErrors()
+			funcGorutine()
+			funcChannel()
+			funcSelect()
+			funcTimeout()
+			funcCloseChannel()
+			funcTimer()
+			funcWorkerPool()
+			funcAtomic()
+			funcMutex()
+			funcDefer()
+			funcStrings()
+			funcJsonToArray()
 	*/
 	funcTime()
 	/*
-		funcNumberParsing()
-		func4byteToFloat()
-	*/
-	funcUrl()
-	funcPost()
-	/*
-		funcFileWrite()
-		funcFileRead()
+				funcNumberParsing()
+				func4byteToFloat()
 
-		funcFilePath()
-		funcDir()
-		funcTempFileOrDir()
-		funcCommandLine()
-		// funcCommandLineSubCommand()
-		funcEnvironment()
-		funcSpawnProcess()
-		funcSignal()
-		//	funcGoWithC()
-		funcBase64()
-		funcRandom()
+				funcUrl()
 
-		funcConnectToShare()
+			funcPost()
 
-		funcExit(0)
-		funcExit(2)
+		funcDb()
+
+						funcFileWrite()
+						funcFileRead()
+
+						funcFilePath()
+						funcDir()
+						funcTempFileOrDir()
+
+					funcCommandLine()
+				 funcCommandLineSubCommand()
+
+						funcEnvironment()
+						funcSpawnProcess()
+						funcSignal()
+						//	funcGoWithC()
+
+			funcBase64()
+			funcRandom()
+
+				funcConnectToShare()
+
+				funcExit(0)
+				funcExit(2)
 	*/
 }
 
@@ -131,7 +143,7 @@ func funcTypes() {
 	fmt.Println(!true)
 }
 
-// Массивы и срезы
+// Массивы
 func funcArrays() {
 
 	fmt.Println("\nArrays and Slices")
@@ -262,6 +274,7 @@ func funcMap() {
 	fmt.Println("\nMap:")
 
 	//Для создания пустой карты, используйте make: make(map[key_type]val_type).
+	// Для map можно опускать size, будет создан map с минимальным размером
 	m := make(map[string]int)
 
 	// Вы можете установить пару ключ/значение используя привычный синтаксис map[key] = val
@@ -291,9 +304,12 @@ func funcMap() {
 	// Вы можете объявить и наполнить карту в одной строке с помощью подобного синтаксиса.
 	// Мапы сортируются по ключу
 	n := map[string]int{"foo": 1, "bar": 2, "aach": 3, "": 4}
-	fmt.Println("map n:", n)
+	fmt.Println("map n:", n) //map n: map[:4 aach:3 bar:2 foo:1]
 	nn := map[int]string{3: "foo", 1: "bar", 2: "aach", 4: ""}
-	fmt.Println("map nn:", nn)
+	fmt.Println("map nn:", nn) //map nn: map[1:bar 2:aach 3:foo 4:]
+	Actions := map[string]string{"a": "valA", "b": "valB"}
+	keys := reflect.ValueOf(Actions).MapKeys()
+	fmt.Println(keys) //[a b]
 }
 
 // Переменные
@@ -1606,6 +1622,17 @@ func funcNumberParsing() {
 	f, _ := strconv.ParseFloat("1.234", 64)
 	fmt.Println(f)
 
+	var dout2 []byte = []byte("1.23213E-6\r\n")
+	var sout2 string = ""
+	res, err := strconv.ParseFloat(strings.Replace(string(dout2), "\r\n", "", -1), 64)
+	if err == nil {
+		//		sout2 = fmt.Sprintf("%f0.3", res)
+		sout2 = "postgres_cpu " + strconv.FormatFloat(res, 'f', 3, 64)
+	} else {
+		sout2 = "postgres_cpu " + strings.Replace(string(dout2), "\r\n", "", -1)
+	}
+	fmt.Println(sout2)
+
 	// Для ParseInt 0 означает вывод базы из строки. 64 необходимо, чтобы результат соответствовал 64 битам.
 	// If the base argument is 0, the true base is implied by the string's prefix following
 	// the sign (if present): 2 for "0b", 8 for "0" or "0o", 16 for "0x", and 10 otherwise.
@@ -1687,49 +1714,87 @@ func funcUrl() {
 
 // выполнение POST-запроса с параметрами и заголовком
 func funcPost() (string, error) {
-	if Os == "windows" {
-		return "", nil
-	}
-	fmt.Println("\nPOST query")
+	const URL_EVENTS = "http://192.168.76.95:8000/events/stat?list=true"
+	urlo := URL_EVENTS
 	hc := http.Client{}
-	url := "https://api.ng.unilight.su/v0.1/object/get/cabinet/info"
-	//	вариант с json-запросом
-	query := map[string]interface{}{}
-	query["uid"] = 194
-	query["key"] = "c48131c63d53b61293257adc5e211238"
-	query["oid"] = 51031
-	query_data, _ := json.Marshal(query)
-	body := bytes.NewBuffer([]byte(query_data))
-	// вариант с application/x-www-form-urlencoded
-	/*
-		params.Add("tag_id", fmt.Sprintf("%d", tag_id))
-		encodedData := params.Encode()
-		body := strings.NewReader(encodedData)
-	*/
-	req, _ := http.NewRequest("POST", url, body)
-	//	вариант с json-запросом
-	req.Header.Set("Content-Type", "application/json")
-	// вариант с application/x-www-form-urlencoded
-	// req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	// req.Header.Set("Content-Length", strconv.Itoa(len(encodedData)))
+
+	params := url.Values{}
+
+	params.Add("login", "admin")
+	params.Add("password", "admin")
+	encodedData := params.Encode()
+	body := strings.NewReader(encodedData)
+
+	req, _ := http.NewRequest("POST", urlo, body)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Content-Length", strconv.Itoa(len(encodedData)))
 
 	resp, err := hc.Do(req)
-	if err != nil {
-		fmt.Println("error Client Do")
-		return "", err
-	} else {
-		defer resp.Body.Close()
-
-		fmt.Println(resp.Header)
-		body, err := io.ReadAll(resp.Body)
-
-		if err != nil {
-			fmt.Println("error ReadAll")
+	total := ""
+	if err == nil {
+		headers := resp.Header
+		fmt.Printf("%v", headers)
+		body, _ := io.ReadAll(resp.Body)
+		fmt.Printf("%s", string(body))
+		_, ct_exists := headers["Content-Type"]
+		if ct_exists && strings.Contains(headers["Content-Type"][0], "json") {
+			body, err := io.ReadAll(resp.Body)
+			if err == nil {
+				var answer map[string]interface{}
+				err = json.Unmarshal(body, &answer)
+				if err == nil {
+					total = answer["total"].(string)
+					return "events " + total, nil
+				}
+			}
 		}
-
-		fmt.Printf("%s\n", string(body))
-		return "Ok", nil
 	}
+
+	return "", nil
+
+	/*
+		fmt.Println("\nPOST query")
+		hc := http.Client{}
+		url := "https://api.ng.unilight.su/v0.1/object/get/cabinet/info"
+		//	вариант с json-запросом
+		query := map[string]interface{}{}
+		query["uid"] = 194
+		query["key"] = "c48131c63d53b61293257adc5e211238"
+		query["oid"] = 51031
+		query_data, _ := json.Marshal(query)
+		body := bytes.NewBuffer([]byte(query_data))
+		// вариант с application/x-www-form-urlencoded
+		/*
+			params.Add("tag_id", fmt.Sprintf("%d", tag_id))
+			encodedData := params.Encode()
+			body := strings.NewReader(encodedData)
+	*/
+	/*
+		req, _ := http.NewRequest("POST", url, body)
+		//	вариант с json-запросом
+		req.Header.Set("Content-Type", "application/json")
+		// вариант с application/x-www-form-urlencoded
+		// req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		// req.Header.Set("Content-Length", strconv.Itoa(len(encodedData)))
+
+		resp, err := hc.Do(req)
+		if err != nil {
+			fmt.Println("error Client Do")
+			return "", err
+		} else {
+			defer resp.Body.Close()
+
+			fmt.Println(resp.Header)
+			body, err := io.ReadAll(resp.Body)
+
+			if err != nil {
+				fmt.Println("error ReadAll")
+			}
+
+			fmt.Printf("%s\n", string(body))
+			return "Ok", nil
+		}
+	*/
 }
 
 // Чтение файлов
@@ -2426,8 +2491,14 @@ func funcBase64() {
 	fmt.Println(sEnc)
 	// Decoding may return an error,
 	// which you can check if you don’t already know the input to be well-formed.
-
-	sDec, _ := b64.StdEncoding.DecodeString(sEnc)
+	// 8AAAAAAAAAAA== F0
+	// AAAAAAAAAAA= 00
+	// YEkSmo2// 0x6049129a8dbf
+	// YEkSmo2///8AAAAAAAAAAA== [96 73 18 154 141 191 255 255 0 0 0 0 0 0 0 0]
+	//                          0x60 49 12 9a 8d bf ff ff 00 00 00 00 00 00 00 00
+	sDec, _ := b64.StdEncoding.DecodeString("YEkSmo2///8AAAAAAAAAAA==")
+	//	sDec, _ := b64.StdEncoding.DecodeString(sEnc)
+	fmt.Printf("0x%02x \n", sDec)
 	fmt.Println(string(sDec))
 	fmt.Println()
 	//This encodes/decodes using a URL-compatible base64 format.
@@ -2663,6 +2734,60 @@ func ls(v *nfs.Target, path string) ([]*nfs.EntryPlus, error) {
 	}
 
 	return dirs, nil
+}
+
+func funcDb() {
+	host := "192.168.76.95"
+	port := 5432
+	user := "postgres"
+	password := "12345678"
+	dbname := "makves"
+
+	psqlconn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", host, port, user, password, dbname)
+
+	// open database
+	db, err := sql.Open("postgres", psqlconn)
+	if err != nil {
+		log.Printf("%s\n", err.Error())
+		return
+	}
+
+	// close database
+	defer db.Close()
+
+	// check db
+	err = db.Ping()
+	if err != nil {
+		log.Printf("%s\n", err.Error())
+		return
+	}
+
+	fmt.Println("Connected!")
+
+	rows, err := db.Query(`SELECT count("id")  FROM "events"`)
+	if err != nil {
+		log.Printf("%s\n", err.Error())
+		return
+	}
+
+	defer rows.Close()
+	for rows.Next() {
+
+		var cnt int
+
+		err = rows.Scan(&cnt)
+		if err != nil {
+			log.Printf("%s\n", err.Error())
+			return
+		}
+
+		fmt.Println(cnt)
+	}
+
+	if err != nil {
+		log.Printf("%s\n", err.Error())
+		return
+	}
 }
 
 /*
