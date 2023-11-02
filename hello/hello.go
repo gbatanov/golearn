@@ -52,71 +52,71 @@ func main() {
 
 	getOsParams()
 	/*
-			funcSyslog()
-			funcInput()
-			funcTypes()
-			funcStructures()
-			funcVariables()
-			funcConstant()
-			funcForIfElse()
-			funcSwitch()
+				funcSyslog()
+				funcInput()
+				funcTypes()
+				funcStructures()
+				funcVariables()
+				funcConstant()
+				funcForIfElse()
+				funcSwitch()
 
-			funcArrays()
-			funcSlices()
+				funcArrays()
+				funcSlices()
 
-			funcMap()
-			funcRange()
-			funcClosure()
+				funcMap()
+				funcRange()
+				funcClosure()
 
-		funcInterface()
+			funcInterface()
 
-			funcErrors()
-			funcGorutine()
-			funcChannel()
-			funcSelect()
-			funcTimeout()
-			funcCloseChannel()
-			funcTimer()
-			funcWorkerPool()
-			funcAtomic()
-			funcMutex()
-			funcDefer()
-			funcStrings()
-			funcJsonToArray()
+				funcErrors()
+				funcGorutine()
+				funcChannel()
+				funcSelect()
+				funcTimeout()
+				funcCloseChannel()
+				funcTimer()
+				funcWorkerPool()
+				funcAtomic()
+				funcMutex()
+				funcDefer()
+				funcStrings()
+				funcJsonToArray()
+
+		funcTime()
+
+					funcNumberParsing()
+					func4byteToFloat()
+
+					funcUrl()
+
+				funcPost()
+
+			funcDb()
 	*/
-	funcTime()
+	funcFileWrite()
+	funcFileRead()
+
+	funcFilePath()
+	funcDir()
+	funcTempFileOrDir()
 	/*
-				funcNumberParsing()
-				func4byteToFloat()
+				funcCommandLine()
+			 funcCommandLineSubCommand()
 
-				funcUrl()
+					funcEnvironment()
+					funcSpawnProcess()
+					funcSignal()
+					//	funcGoWithC()
 
-			funcPost()
+		funcBase64()
+		funcRandom()
 
-		funcDb()
+			funcConnectToShare()
 
-						funcFileWrite()
-						funcFileRead()
-
-						funcFilePath()
-						funcDir()
-						funcTempFileOrDir()
-
-					funcCommandLine()
-				 funcCommandLineSubCommand()
-
-						funcEnvironment()
-						funcSpawnProcess()
-						funcSignal()
-						//	funcGoWithC()
-
-			funcBase64()
-			funcRandom()
-
-				funcConnectToShare()
-
-				funcExit(0)
-				funcExit(2)
+			funcExit(0)
+			funcExit(2)
 	*/
 }
 
@@ -2034,6 +2034,7 @@ func funcFilePath() {
 
 	// Некоторые имена файлов имеют расширения, следующие за точкой.
 	// Мы можем получить расширение из таких имен с помощью Ext.
+	// Расширение приходит с точкой!
 	filename := "config.json"
 	ext := filepath.Ext(filename)
 	fmt.Println(ext)
