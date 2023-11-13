@@ -14,7 +14,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-const VERSION = "0.0.5"
+const VERSION = "0.0.6"
 const SERVER = "192.168.76.95:8089"
 
 // Пример встраивания целой папки в переменную
@@ -50,24 +50,20 @@ func main() {
 	//	  router.LoadHTMLGlob(".\\html\\tpl\\*")
 	//
 	//router.StaticFS("/css", http.FS(f)) // Не заработало /html /html/css /css
-	router.Static("/css", ".\\html\\css") // так работает
+	router.StaticFS("/css", http.Dir("html/css")) // так работает, но это не embed
+	//router.Static("/css", ".\\html\\css") // так работает
+
+	// иконка
+	//	router.StaticFile("/img/fav32.png", ".\\html\\img\\fav32.png")
+	router.StaticFile("/favicon.ico", ".\\html\\img\\fav32.png")
 
 	actionSrv := NewActionHandler()
 
 	router.GET("/ping", actionSrv.ping)
 	router.GET("/cmd", actionSrv.cmdHandler)
 	router.GET("/", actionSrv.mainPage)
-	/*
-		router.GET("favicon.ico", func(c *gin.Context) {
-			file, _ := f.ReadFile("assets/favicon.ico")
-			c.Data(
-			  http.StatusOK,
-			  "image/x-icon",
-			  file,
-			)
-		  })
-	*/
-	log.Printf("%v", router.Routes())
+
+	//	log.Printf("%v", router.Routes())
 	srv := &http.Server{
 		Addr:    SERVER,
 		Handler: router,
