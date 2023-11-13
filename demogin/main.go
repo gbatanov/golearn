@@ -14,7 +14,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-const VERSION = "0.0.6"
+const VERSION = "0.0.7"
 const SERVER = "192.168.76.95:8089"
 
 // Пример встраивания целой папки в переменную
@@ -26,6 +26,9 @@ var f embed.FS
 //
 //go:embed README.md
 var readme string
+
+//go:embed html/img/fav32.png
+var icon []byte
 
 type ActionHandler struct{}
 
@@ -53,9 +56,18 @@ func main() {
 	router.StaticFS("/css", http.Dir("html/css")) // так работает, но это не embed
 	//router.Static("/css", ".\\html\\css") // так работает
 
-	// иконка
-	//	router.StaticFile("/img/fav32.png", ".\\html\\img\\fav32.png")
-	router.StaticFile("/favicon.ico", ".\\html\\img\\fav32.png")
+	// картинка
+	router.StaticFile("/img/fav32.png", ".\\html\\img\\fav32.png")
+	// иконка из файла
+	//	router.StaticFile("/favicon.ico", ".\\html\\img\\fav32.png")
+	// иконка из внедренной картинки
+	router.GET("/favicon.ico", func(c *gin.Context) {
+		c.Data(
+			http.StatusOK,
+			"image/x-icon",
+			icon,
+		)
+	})
 
 	actionSrv := NewActionHandler()
 
