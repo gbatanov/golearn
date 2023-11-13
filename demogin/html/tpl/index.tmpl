@@ -1,12 +1,19 @@
-<html>
-<head> 
-<title>{{ .title }}</title>
-<link rel="stylesheet" href="/css/style.css">
-<link rel="icon" type="image/png" href="/favicon.ico"/>
-</head>
-<body>
-<div>
-   Main page 2
-</div>
-</body>
-</html>
+{{define "head"}}
+    <style>
+        .hello{ color: #884432;}
+        hr{ border: 1px #ccc dashed;}
+    </style>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="icon" type="image/png" href="/favicon.ico"/>
+
+{{end}}
+
+
+{{define "content"}}
+    <h1 class="hello">This is content!!!!</h1>
+    <p>123 + 333 = {{call $.add 123 333}}</p>
+   <p>123 - 333 = {{sub 123 333}}</p>
+
+    <hr>
+    <p><a href="/cmd">Page command</a></p>
+{{end}}
