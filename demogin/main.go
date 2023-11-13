@@ -12,7 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-const VERSION = "0.0.2"
+const VERSION = "0.0.3"
 const SERVER = "192.168.76.95:8089"
 
 type ActionHandler struct{}
@@ -28,13 +28,15 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
 	gin.SetMode(gin.ReleaseMode)
-	router := gin.Default()
+	//	router := gin.Default()
+	router := gin.New()
 	router.LoadHTMLGlob(".\\html\\*")
 
 	actionSrv := NewActionHandler()
 
 	router.GET("/ping", actionSrv.ping)
 	router.GET("/cmd", actionSrv.cmdHandler)
+	router.GET("/", actionSrv.mainPage)
 
 	log.Printf("%v", router.Routes())
 	srv := &http.Server{
@@ -63,12 +65,8 @@ func main() {
 }
 
 func (ts *ActionHandler) ping(c *gin.Context) {
-	log.Printf("%v", c.Query("id"))
-	//JSON serializes the given struct as JSON into the response body.
-	// It also sets the Content-Type as "application/json"
-	c.JSON(http.StatusOK, gin.H{
-		"message": c.Query("id"),
-	})
+	log.Printf("%s", "ping redirect to main page")
+	c.Redirect(http.StatusPermanentRedirect, "/")
 }
 
 // id - это не /cmd/?id=89689, а /cmd/hdjhg при роутере /cmd/:id
@@ -80,5 +78,8 @@ func (ts *ActionHandler) cmdHandler(c *gin.Context) {
 	log.Printf("%s %s", id, cmd)
 
 	// HTML ответ на основе шаблона
-	c.HTML(http.StatusOK, "index.tmpl", gin.H{"title": "GSB website", "id": id, "cmd": cmd})
+	c.HTML(http.StatusOK, "command.tmpl", gin.H{"title": "GSB website", "id": id, "cmd": cmd})
+}
+func (ts *ActionHandler) mainPage(c *gin.Context) {
+	c.HTML(http.StatusOK, "index.tmpl", gin.H{"title": "GSB website"})
 }
