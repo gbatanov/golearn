@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"embed"
+	"html/template"
 	"log"
 	"net/http"
 	"os"
@@ -12,8 +14,18 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-const VERSION = "0.0.3"
+const VERSION = "0.0.4"
 const SERVER = "192.168.76.95:8089"
+
+// Пример встраивания целой папки в переменную
+//
+//go:embed  html/*
+var f embed.FS
+
+// Пример встраивания текстового файла в строку
+//
+//go:embed README.md
+var readme string
 
 type ActionHandler struct{}
 
@@ -23,14 +35,20 @@ func NewActionHandler() *ActionHandler {
 }
 
 func main() {
-
+	log.Println(readme)
 	quit := make(chan os.Signal)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
 	gin.SetMode(gin.ReleaseMode)
 	//	router := gin.Default()
 	router := gin.New()
-	router.LoadHTMLGlob(".\\html\\*")
+
+	// Используем встроенные шаблоны (включаются в тело программы)
+	templ := template.Must(template.New("").ParseFS(f, "html/*.tmpl"))
+	router.SetHTMLTemplate(templ)
+
+	// Использования шаблонов из ФС
+	//	  router.LoadHTMLGlob(".\\html\\*")
 
 	actionSrv := NewActionHandler()
 
