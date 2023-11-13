@@ -17,7 +17,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-const VERSION = "0.0.8"
+const VERSION = "0.0.9"
 const SERVER = "192.168.76.95:8089"
 
 // Пример встраивания целой папки в переменную
@@ -63,11 +63,12 @@ func main() {
 			// more funcs
 		},
 		DisableCache: true, //if disable cache, auto reload template file for debug.
-		//		Delims:       Delims{Left: "{{", Right: "}}"},
+		Delims:       goview.Delims{Left: "{{", Right: "}}"},
 	}
 	router.HTMLRender = ginview.New(vConfig)
 	/*
 		// Используем встроенные шаблоны (включаются в тело программы)
+		// При использовании Ginview такой возможности нет
 		templ := template.Must(template.New("").ParseFS(f, "html/tpl/*.tmpl"))
 		router.SetHTMLTemplate(templ)
 		// Использования шаблонов из ФС
@@ -142,15 +143,18 @@ func (ts *ActionHandler) ping(c *gin.Context) {
 
 // id - это не /cmd/?id=89689, а /cmd/hdjhg при роутере /cmd/:id
 // для /cmd/?id=89689 использовать c.Query("id")
+// Используется рендер Gin
 func (ts *ActionHandler) cmdHandler(c *gin.Context) {
 	id := c.Query("id")   //c.Params.ByName("id")
 	cmd := c.Query("cmd") //c.Params.ByName("cmd")
 
 	log.Printf("%s %s", id, cmd)
 
-	// HTML ответ на основе шаблона
+	// HTML ответ на основе шаблона Gin( go template html/template)
 	c.HTML(http.StatusOK, "command.tmpl", gin.H{"title": "GSB website", "id": id, "cmd": cmd})
 }
+
+// Используется Ginwiew для рендера
 func (ts *ActionHandler) mainPage(c *gin.Context) {
 	ginview.HTML(c, http.StatusOK, "index", gin.H{
 		"title": "GSB website",
