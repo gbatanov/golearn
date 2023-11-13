@@ -14,7 +14,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-const VERSION = "0.0.4"
+const VERSION = "0.0.5"
 const SERVER = "192.168.76.95:8089"
 
 // Пример встраивания целой папки в переменную
@@ -35,7 +35,7 @@ func NewActionHandler() *ActionHandler {
 }
 
 func main() {
-	log.Println(readme)
+	//	log.Println(readme)
 	quit := make(chan os.Signal)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
@@ -44,18 +44,29 @@ func main() {
 	router := gin.New()
 
 	// Используем встроенные шаблоны (включаются в тело программы)
-	templ := template.Must(template.New("").ParseFS(f, "html/*.tmpl"))
+	templ := template.Must(template.New("").ParseFS(f, "html/tpl/*.tmpl"))
 	router.SetHTMLTemplate(templ)
-
 	// Использования шаблонов из ФС
-	//	  router.LoadHTMLGlob(".\\html\\*")
+	//	  router.LoadHTMLGlob(".\\html\\tpl\\*")
+	//
+	//router.StaticFS("/css", http.FS(f)) // Не заработало /html /html/css /css
+	router.Static("/css", ".\\html\\css") // так работает
 
 	actionSrv := NewActionHandler()
 
 	router.GET("/ping", actionSrv.ping)
 	router.GET("/cmd", actionSrv.cmdHandler)
 	router.GET("/", actionSrv.mainPage)
-
+	/*
+		router.GET("favicon.ico", func(c *gin.Context) {
+			file, _ := f.ReadFile("assets/favicon.ico")
+			c.Data(
+			  http.StatusOK,
+			  "image/x-icon",
+			  file,
+			)
+		  })
+	*/
 	log.Printf("%v", router.Routes())
 	srv := &http.Server{
 		Addr:    SERVER,
