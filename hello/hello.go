@@ -51,25 +51,25 @@ func main() {
 	fmt.Println("Учебный код по Golang", Version)
 
 	getOsParams()
+
+	funcSyslog()
+	funcInput()
+	funcTypes()
+	funcStructures()
+	funcVariables()
+	funcConstant()
+	funcForIfElse()
+	funcSwitch()
+
+	funcArrays()
+	funcSlices()
+
+	funcMap()
+	funcRange()
+	funcClosure()
+
+	funcInterface()
 	/*
-				funcSyslog()
-				funcInput()
-				funcTypes()
-				funcStructures()
-				funcVariables()
-				funcConstant()
-				funcForIfElse()
-				funcSwitch()
-
-				funcArrays()
-				funcSlices()
-
-				funcMap()
-				funcRange()
-				funcClosure()
-
-			funcInterface()
-
 				funcErrors()
 				funcGorutine()
 				funcChannel()
