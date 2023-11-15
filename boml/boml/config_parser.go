@@ -3,6 +3,7 @@ package boml
 import (
 	"bufio"
 	"errors"
+	"log"
 	"os"
 	"reflect"
 	"strconv"
@@ -37,7 +38,7 @@ func (config *BomlConfig) Load(filename string) error {
 	} else {
 		scan := bufio.NewScanner(fd)
 		var mode string = "" // имя рабочей секции
-
+		var inSection = true
 		// read line by line
 		for scan.Scan() {
 
@@ -54,16 +55,17 @@ func (config *BomlConfig) Load(filename string) error {
 
 			if strings.HasPrefix(line, "[") {
 				section := line[1 : len(line)-1]
-				if section != mode {
-					continue
-				}
+				log.Printf("section %s mode %s\n", section, mode)
+				inSection = section == mode
+				continue // Пропускаем строку с именем секции
 			}
-
+			if !inSection {
+				// Пропускаем строки внутри ненужной секции
+				continue
+			}
 			values := strings.Split(line, "=")
 			vKey := strings.Trim(strings.ToLower(values[0]), " \t")
 			vVal := strings.Trim(line[len(values[0]):], "= \t")
-
-			//		log.Printf("%s = %s\n", vKey, vVal)
 
 			t := reflect.TypeOf(*config)
 			// ps - указатель на структуру - addressable,
@@ -103,18 +105,20 @@ func (config *BomlConfig) Load(filename string) error {
 }
 
 // Обрезка хвоста после комментария
+// Символ комментария выбирается самый левый
 func (conf *BomlConfig) trailComments(line *string) {
-	if strings.Contains(*line, "//") { // tail comment
-		spl := strings.Split(*line, "//")
+	seps := []string{"//", "#", ";"}
+	pos := len(*line)
+	sep := ""
+	for _, sp := range seps {
+		pos1 := strings.Index(*line, sp)
+		if pos1 > 0 && pos1 < pos {
+			pos = pos1
+			sep = sp
+		}
+	}
+	if sep != "" {
+		spl := strings.Split(*line, sep)
 		*line = strings.Trim(spl[0], " \t")
 	}
-	if strings.Contains(*line, "#") { // tail comment
-		spl := strings.Split(*line, "#")
-		*line = strings.Trim(spl[0], " \t")
-	}
-	if strings.Contains(*line, ";") { // tail comment
-		spl := strings.Split(*line, ";")
-		*line = strings.Trim(spl[0], " \t")
-	}
-
 }
