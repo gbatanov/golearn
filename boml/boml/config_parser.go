@@ -36,50 +36,38 @@ func (config *BomlConfig) Load(filename string) error {
 		return errors.New("incorrect file with configuration")
 	} else {
 		scan := bufio.NewScanner(fd)
-		var mode string = ""
-		var sectionMode bool = true
-		var values []string = []string{}
+		var mode string = "" // имя рабочей секции
+
 		// read line by line
 		for scan.Scan() {
 
-			line := scan.Text()
-			line = strings.Trim(line, " \t")
+			line := strings.Trim(scan.Text(), " \t")
 
 			if strings.HasPrefix(line, "//") || strings.HasPrefix(line, "#") || strings.HasPrefix(line, ";") { //comment
 				continue
 			}
 			config.trailComments(&line)
 
-			if len(line) < 3 { //empty string
-				continue
-			}
-			if len(mode) == 0 {
-				values = strings.Split(line, "=")
-				if strings.ToLower(strings.Trim(values[0], " \t")) != "mode" {
-					continue
-				}
-				mode = strings.Trim(line[len(values[0]):], " \t")
-				mode = strings.ToLower(strings.Trim(mode, "="))
-				config.Mode = mode
+			if len(line) < 3 { //пустая строка - минимальная строка a=b (3 символа)
 				continue
 			}
 
 			if strings.HasPrefix(line, "[") {
 				section := line[1 : len(line)-1]
-				sectionMode = section == mode
-				continue
+				if section != mode {
+					continue
+				}
 			}
-			if !sectionMode { //pass section
-				continue
-			}
+
 			values := strings.Split(line, "=")
-			values1 := strings.Trim(line[len(values[0]):], " \t")
-			values1 = strings.Trim(values1, "=")
-			values1 = strings.Trim(values1, " \t")
-			values0 := strings.ToLower(values[0])
+			vKey := strings.Trim(strings.ToLower(values[0]), " \t")
+			vVal := strings.Trim(line[len(values[0]):], "= \t")
+
+			//		log.Printf("%s = %s\n", vKey, vVal)
 
 			t := reflect.TypeOf(*config)
-			// указатель на структуру - addressable, не имеет свойства Tag, поэтому еще используем reflect.TypeOf
+			// ps - указатель на структуру - addressable,
+			// в нем поле Field не имеет свойства Tag, поэтому еще используем reflect.TypeOf
 			ps := reflect.ValueOf(config)
 			// сама структура
 			s := ps.Elem()
@@ -88,19 +76,23 @@ func (config *BomlConfig) Load(filename string) error {
 					f := s.Field(i)
 					field := t.Field(i)
 					tag := field.Tag.Get("boml")
-					if tag == values0 {
+					if tag == vKey {
 						//log.Printf(" %v (%v), tag: '%v'\n", field.Name, field.Type.Name(), tag)
 						switch field.Type.Name() {
+						// В этой конфигурации используются только строки и целые числа
 						case "string":
-							f.SetString(values[1])
+							if vKey == "mode" {
+								mode = vVal
+							}
+							f.SetString(vVal)
 						case "int":
-							in, err := strconv.Atoi(values1)
+							in, err := strconv.Atoi(vVal)
 							if err == nil {
 								// несмотря на то, что на входе и на выходе int, reflect требует int64
 								f.SetInt(int64(in))
 							}
 						}
-						break
+						break // прекращаем перебор полей
 					}
 				}
 			}
