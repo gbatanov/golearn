@@ -10,6 +10,8 @@ import (
 	"strings"
 )
 
+var BomlComments []string = []string{"//"} /* # ; не допускаются, потому что теоретически могут быть в пароле */
+
 // Пример файла конфигурации
 type BomlConfig struct {
 	Mode             string `boml:"mode"`
@@ -44,10 +46,7 @@ func (config *BomlConfig) Load(filename string) error {
 
 			line := strings.Trim(scan.Text(), " \t")
 
-			if strings.HasPrefix(line, "//") || strings.HasPrefix(line, "#") || strings.HasPrefix(line, ";") { //comment
-				continue
-			}
-			config.trailComments(&line)
+			config.RemoveComments(&line)
 
 			if len(line) < 3 { //пустая строка - минимальная строка a=b (3 символа)
 				continue
@@ -55,7 +54,6 @@ func (config *BomlConfig) Load(filename string) error {
 
 			if strings.HasPrefix(line, "[") {
 				section := line[1 : len(line)-1]
-				log.Printf("section %s mode %s\n", section, mode)
 				inSection = section == mode
 				continue // Пропускаем строку с именем секции
 			}
@@ -66,6 +64,8 @@ func (config *BomlConfig) Load(filename string) error {
 			values := strings.Split(line, "=")
 			vKey := strings.Trim(strings.ToLower(values[0]), " \t")
 			vVal := strings.Trim(line[len(values[0]):], "= \t")
+
+			log.Printf("%s = %s\n", vKey, vVal)
 
 			t := reflect.TypeOf(*config)
 			// ps - указатель на структуру - addressable,
@@ -104,13 +104,17 @@ func (config *BomlConfig) Load(filename string) error {
 	return nil
 }
 
-// Обрезка хвоста после комментария
-// Символ комментария выбирается самый левый
-func (conf *BomlConfig) trailComments(line *string) {
-	seps := []string{"//", "#", ";"}
+// Обнуление строки с комментарием
+// Обрезка хвоста после комментария (Символ комментария выбирается самый левый)
+func (conf *BomlConfig) RemoveComments(line *string) {
+	seps := BomlComments
 	pos := len(*line)
 	sep := ""
 	for _, sp := range seps {
+		if strings.HasPrefix(*line, sp) {
+			*line = ""
+			break
+		}
 		pos1 := strings.Index(*line, sp)
 		if pos1 > 0 && pos1 < pos {
 			pos = pos1
