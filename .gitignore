@@ -3,4 +3,6 @@ pkg/
 *.log
 swagger-codegen*
 ghp_*
+.token*
+
 
