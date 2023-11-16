@@ -6,7 +6,7 @@ import (
 	"github.com/gbatanov/golearn/boml/boml"
 )
 
-const VERSION = "v0.0.5"
+const VERSION = "v0.0.6"
 
 func main() {
 	var config boml.BomlConfig = boml.BomlConfig{}

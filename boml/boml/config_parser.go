@@ -3,7 +3,6 @@ package boml
 import (
 	"bufio"
 	"errors"
-	"log"
 	"os"
 	"reflect"
 	"strconv"
@@ -62,25 +61,23 @@ func (config *BomlConfig) Load(filename string) error {
 				continue
 			}
 			values := strings.Split(line, "=")
+			if len(values) < 2 {
+				continue
+			}
 			vKey := strings.Trim(strings.ToLower(values[0]), " \t")
-			vVal := strings.Trim(line[len(values[0]):], "= \t")
+			vVal := strings.Trim(values[1], " \t")
 
-			log.Printf("%s = %s\n", vKey, vVal)
-
-			t := reflect.TypeOf(*config)
-			// ps - указатель на структуру - addressable,
-			// в нем поле Field не имеет свойства Tag, поэтому еще используем reflect.TypeOf
-			ps := reflect.ValueOf(config)
-			// сама структура
-			s := ps.Elem()
+			s := reflect.ValueOf(config).Elem()
+			typeOfT := s.Type()
 			if s.Kind() == reflect.Struct {
 				for i := 0; i < s.NumField(); i++ {
 					f := s.Field(i)
-					field := t.Field(i)
-					tag := field.Tag.Get("boml")
-					if tag == vKey {
-						//log.Printf(" %v (%v), tag: '%v'\n", field.Name, field.Type.Name(), tag)
-						switch field.Type.Name() {
+					tag := typeOfT.Field(i).Tag.Get("boml")
+					if tag == "" { // тэг не прописан для этого поля, берем имя поля в LowerCase
+						tag = strings.ToLower(typeOfT.Field(i).Name)
+					}
+					if tag == vKey && f.CanSet() {
+						switch f.Type().Name() {
 						// В этой конфигурации используются только строки и целые числа
 						case "string":
 							if vKey == "mode" {
