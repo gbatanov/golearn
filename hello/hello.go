@@ -69,32 +69,32 @@ func main() {
 	funcClosure()
 
 	funcInterface()
-	/*
-				funcErrors()
-				funcGorutine()
-				funcChannel()
-				funcSelect()
-				funcTimeout()
-				funcCloseChannel()
-				funcTimer()
-				funcWorkerPool()
-				funcAtomic()
-				funcMutex()
-				funcDefer()
-				funcStrings()
-				funcJsonToArray()
 
-		funcTime()
+	funcErrors()
+	funcGorutine()
+	funcChannel()
+	funcSelect()
+	funcTimeout()
+	funcCloseChannel()
+	funcTimer()
+	funcWorkerPool()
+	funcAtomic()
+	funcMutex()
+	funcDefer()
+	funcStrings()
+	funcJsonToArray()
 
-					funcNumberParsing()
-					func4byteToFloat()
+	funcTime()
 
-					funcUrl()
+	funcNumberParsing()
+	func4byteToFloat()
 
-				funcPost()
+	funcUrl()
 
-			funcDb()
-	*/
+	funcPost()
+
+	funcDb()
+
 	funcFileWrite()
 	funcFileRead()
 
