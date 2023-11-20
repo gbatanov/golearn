@@ -3,9 +3,8 @@ package nfs
 import (
 	"errors"
 	"fmt"
-
-	"work/golearn/hello/nfs/rpc"
-	"work/golearn/hello/nfs/xdr"
+	"gbatanov/hello/nfs/rpc"
+	"gbatanov/hello/nfs/xdr"
 )
 
 const (

@@ -8,8 +8,8 @@ import (
 	"syscall"
 	"time"
 
-	"work/golearn/hello/nfs/rpc"
-	"work/golearn/hello/nfs/util"
+	"gbatanov/hello/nfs/rpc"
+	"gbatanov/hello/nfs/util"
 )
 
 const (

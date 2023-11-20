@@ -4,12 +4,11 @@ package nfs
 
 import (
 	"errors"
+	"gbatanov/hello/nfs/rpc"
+	"gbatanov/hello/nfs/util"
+	"gbatanov/hello/nfs/xdr"
 	"io"
 	"os"
-
-	"work/golearn/hello/nfs/rpc"
-	"work/golearn/hello/nfs/util"
-	"work/golearn/hello/nfs/xdr"
 )
 
 // File wraps the NfsProc3Read and NfsProc3Write methods to implement a

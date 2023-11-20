@@ -13,7 +13,7 @@ import (
 	"golang.org/x/sys/windows/svc"
 )
 
-const VERSION = "0.1.3"
+const VERSION = "0.2.4"
 
 func usage(errmsg string) {
 	fmt.Fprintf(os.Stderr,

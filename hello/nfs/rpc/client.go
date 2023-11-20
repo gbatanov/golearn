@@ -4,14 +4,13 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"gbatanov/hello/nfs/util"
+	"gbatanov/hello/nfs/xdr"
 	"io"
 	"math/rand"
 	"net"
 	"sync/atomic"
 	"time"
-
-	"work/golearn/hello/nfs/util"
-	"work/golearn/hello/nfs/xdr"
 )
 
 const (

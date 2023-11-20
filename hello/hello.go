@@ -10,6 +10,9 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"gbatanov/hello/nfs"
+	"gbatanov/hello/nfs/rpc"
+	"gbatanov/hello/nfs/util"
 
 	"io"
 	"io/fs"
@@ -31,11 +34,6 @@ import (
 	"sync/atomic"
 	"syscall"
 	"time"
-
-	"work/golearn/hello/nfs/rpc"
-	"work/golearn/hello/nfs/util"
-
-	"work/golearn/hello/nfs"
 
 	"database/sql"
 
@@ -2569,7 +2567,7 @@ func funcConnectToShare() error {
 	if err != nil {
 		log.Fatalf("unable to dial MOUNT service: %v", err)
 	}
-	defer mount.Close()
+	//	defer mount.Close()
 
 	auth := rpc.NewAuthUnix("unknown", 0, 3)
 	auth.Gids = 3
@@ -2579,7 +2577,7 @@ func funcConnectToShare() error {
 	if err != nil {
 		log.Fatalf("unable to mount volume: %v", err)
 	}
-	defer v.Close()
+	//defer v.Close()
 
 	// discover any system files such as lost+found or .snapshot
 	dirs, err := ls(v, ".")
@@ -2659,7 +2657,7 @@ func funcConnectToShare() error {
 			log.Fatalf("unable to umount target: %v", err)
 		}
 	*/
-	mount.Close()
+	//mount.Close()
 	util.Infof("Completed tests")
 
 	return nil

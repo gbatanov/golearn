@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"work/golearn/hello/nfs/rpc"
-	"work/golearn/hello/nfs/util"
-	"work/golearn/hello/nfs/xdr"
+	"gbatanov/hello/nfs/rpc"
+	"gbatanov/hello/nfs/util"
+	"gbatanov/hello/nfs/xdr"
 )
 
 type Target struct {

@@ -5,7 +5,7 @@ import (
 	"math/rand"
 	"time"
 
-	"work/golearn/hello/nfs/xdr"
+	"gbatanov/hello/nfs/xdr"
 )
 
 type Auth struct {
