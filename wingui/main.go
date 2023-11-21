@@ -23,7 +23,7 @@ import (
 	"gioui.org/widget/material"
 )
 
-const VERSION = "v0.0.4"
+const VERSION = "v0.0.5"
 
 var count = 3
 var period = 60 // seconds
@@ -32,16 +32,20 @@ var quit chan os.Signal
 var stateChan chan bool
 var spinger *pinger.SPinger
 var err error
+var withCaption = true
 
 func main() {
 	server := "192.168.76.106"
 	quit = make(chan os.Signal)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM, syscall.SIGABRT)
+	stateChan = make(chan bool, 1)
+	spinger, err = pinger.NewPinger(server, count, period, stateChan)
+	if err != nil {
+		panic(err)
+	}
 
-	withCaption := true
 	go func() {
 		var w *app.Window
-		//		statusColor := color.NRGBA{R: 255, G: 255, B: 0, A: 128}
 		// app.Decorated(false) - выводит окно без Caption
 
 		w = app.NewWindow(
@@ -58,12 +62,6 @@ func main() {
 		os.Exit(0)
 	}()
 
-	stateChan = make(chan bool, 1)
-	spinger, err = pinger.NewPinger(server, count, period, stateChan)
-	if err != nil {
-		panic(err)
-	}
-
 	go func() {
 		systray.Run(onReady, onExit)
 		if spinger.Flag {
@@ -71,38 +69,13 @@ func main() {
 		}
 	}()
 
-	// Receiving the state of the monitored server
-	go func() {
-		msgSent := false
-		oldState := 1
-		for {
-			state, ok := <-stateChan
-			if !ok {
-				log.Println("channel was closed")
-				return
-			}
-			if state {
-				log.Println("server alive")
-				oldState = 1
-				msgSent = false
-			} else {
-				log.Println("server don't responce")
-				if oldState == 1 {
-					oldState = 0
-					if !msgSent {
-						msgSent = sendMsg()
-					}
-				}
-			}
-		}
-	}()
-
-	//	log.Println("check run")
 	spinger.Run()
 	app.Main()
 }
 
 func run(w *app.Window) error {
+	msgSent := false
+	oldState := 1
 
 	th := material.NewTheme()
 	th.Shaper = text.NewShaper(text.WithCollection(gofont.Collection()))
@@ -111,6 +84,11 @@ func run(w *app.Window) error {
 	th.Bg.R = 0
 	th.Bg.G = 0
 	var ops op.Ops
+	var title material.LabelStyle
+	green := color.NRGBA{R: 0, G: 255, B: 0, A: 255}
+	red := color.NRGBA{R: 255, G: 0, B: 0, A: 255}
+	yellow := color.NRGBA{R: 255, G: 255, B: 0, A: 255}
+	titleColor := yellow
 	for {
 		select {
 		case e := <-w.Events():
@@ -124,13 +102,11 @@ func run(w *app.Window) error {
 
 				return e.Err
 			case system.FrameEvent:
-
+				log.Println("Frame event")
 				gtx := layout.NewContext(&ops, e)
-				//			inset := layout.Inset{Top: 8, ...}
-				title := material.H1(th, "192.168.76.106")
-				maroon := color.NRGBA{R: 0, G: 255, B: 0, A: 255}
 
-				title.Color = maroon
+				title = material.H1(th, "192.168.76.106")
+				title.Color = titleColor
 				title.Alignment = text.Middle
 				title.TextSize = 28.0
 				title.Font.Weight = 400
@@ -138,15 +114,32 @@ func run(w *app.Window) error {
 				inset := layout.Inset{Top: 20, Bottom: 8, Left: 8, Right: 8}
 				inset.Layout(gtx, title.Layout)
 				e.Frame(gtx.Ops)
-
-				//			default:
-				//				fmt.Println(e)
 			}
 
 			// Это просто пример использования канала для внешних событий!
 			// В реале не использовать ))
 		case <-quit:
 			return nil
+		case state, ok := <-stateChan:
+			if !ok {
+				log.Println("channel was closed")
+				return nil
+			}
+			if state {
+				titleColor = green
+				w.Invalidate()
+				oldState = 1
+				msgSent = false
+			} else {
+				titleColor = red
+				w.Invalidate()
+				if oldState == 1 {
+					oldState = 0
+					if !msgSent {
+						msgSent = sendMsg()
+					}
+				}
+			}
 
 		} //select
 	}
