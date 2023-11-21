@@ -1,10 +1,15 @@
 package main
 
 import (
+	"fmt"
 	"image/color"
 	"log"
 	"os"
+	"os/signal"
+	"syscall"
 
+	"fyne.io/systray"
+	"fyne.io/systray/example/icon"
 	"gioui.org/app"
 	"gioui.org/font/gofont"
 	"gioui.org/io/system"
@@ -14,11 +19,14 @@ import (
 	"gioui.org/widget/material"
 )
 
-const VERSION = "v0.0.2"
+const VERSION = "v0.0.3"
 
 var quit chan os.Signal
 
 func main() {
+
+	quit = make(chan os.Signal)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM, syscall.SIGABRT)
 
 	withCaption := true
 	go func() {
@@ -39,10 +47,14 @@ func main() {
 		}
 		os.Exit(0)
 	}()
+	go func() {
+		systray.Run(onReady, onExit)
+	}()
 	app.Main()
 }
 
 func run(w *app.Window) error {
+
 	th := material.NewTheme()
 	th.Shaper = text.NewShaper(text.WithCollection(gofont.Collection()))
 	th.Bg.A = 255
@@ -54,7 +66,10 @@ func run(w *app.Window) error {
 		select {
 		case e := <-w.Events():
 			switch e := e.(type) {
+
 			case system.DestroyEvent:
+				fmt.Println("system.DestroyEvent")
+
 				return e.Err
 			case system.FrameEvent:
 
@@ -71,12 +86,35 @@ func run(w *app.Window) error {
 				inset := layout.Inset{Top: 20, Bottom: 8, Left: 8, Right: 8}
 				inset.Layout(gtx, title.Layout)
 				e.Frame(gtx.Ops)
+
+				//			default:
+				//				fmt.Println(e)
 			}
+
 			// Это просто пример использования канала для внешних событий!
 			// В реале не использовать ))
-		case extE := <-quit:
-			log.Println(extE)
-			os.Exit(0)
+		case <-quit:
+			return nil
+
 		} //select
 	}
+}
+
+func onReady() {
+	systray.SetIcon(icon.Data)
+	systray.SetTitle("Check Server")
+	systray.SetTooltip("Check Server Health")
+	mQuit := systray.AddMenuItem("Quit", "Quit the whole app")
+	mQuit.Enable()
+	go func() {
+		<-mQuit.ClickedCh
+		systray.Quit()
+
+	}()
+	// Sets the icon of a menu item.
+	mQuit.SetIcon(icon.Data)
+}
+
+func onExit() {
+	quit <- syscall.SIGTERM
 }
