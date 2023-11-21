@@ -4,9 +4,13 @@ import (
 	"fmt"
 	"image/color"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
+
+	"wingui/pinger"
 
 	"fyne.io/systray"
 	"fyne.io/systray/example/icon"
@@ -19,12 +23,18 @@ import (
 	"gioui.org/widget/material"
 )
 
-const VERSION = "v0.0.3"
+const VERSION = "v0.0.4"
 
+var count = 3
+var period = 60 // seconds
+var tlgBotService = "http://192.168.76.95:8055/api/?"
 var quit chan os.Signal
+var stateChan chan bool
+var spinger *pinger.SPinger
+var err error
 
 func main() {
-
+	server := "192.168.76.106"
 	quit = make(chan os.Signal)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM, syscall.SIGABRT)
 
@@ -47,9 +57,48 @@ func main() {
 		}
 		os.Exit(0)
 	}()
+
+	stateChan = make(chan bool, 1)
+	spinger, err = pinger.NewPinger(server, count, period, stateChan)
+	if err != nil {
+		panic(err)
+	}
+
 	go func() {
 		systray.Run(onReady, onExit)
+		if spinger.Flag {
+			spinger.Stop()
+		}
 	}()
+
+	// Receiving the state of the monitored server
+	go func() {
+		msgSent := false
+		oldState := 1
+		for {
+			state, ok := <-stateChan
+			if !ok {
+				log.Println("channel was closed")
+				return
+			}
+			if state {
+				log.Println("server alive")
+				oldState = 1
+				msgSent = false
+			} else {
+				log.Println("server don't responce")
+				if oldState == 1 {
+					oldState = 0
+					if !msgSent {
+						msgSent = sendMsg()
+					}
+				}
+			}
+		}
+	}()
+
+	//	log.Println("check run")
+	spinger.Run()
 	app.Main()
 }
 
@@ -69,6 +118,9 @@ func run(w *app.Window) error {
 
 			case system.DestroyEvent:
 				fmt.Println("system.DestroyEvent")
+				if spinger.Flag {
+					spinger.Stop()
+				}
 
 				return e.Err
 			case system.FrameEvent:
@@ -117,4 +169,30 @@ func onReady() {
 
 func onExit() {
 	quit <- syscall.SIGTERM
+}
+
+// Send message to telegram
+func sendMsg() bool {
+	client := http.Client{}
+	client.Timeout = 10 * time.Second
+	/*
+		params := url.Values{}
+		params.Add("msg", "server_invalid")
+		encodedData := params.Encode()
+		body := strings.NewReader(encodedData)
+
+		req, _ := http.NewRequest("POST",tlgBotService, body)
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.Header.Set("Content-Length", strconv.Itoa(len(encodedData)))
+
+		resp, err := client.Do(req)
+	*/
+
+	url := tlgBotService + "msg=server_invalid"
+	resp, err := client.Get(url)
+
+	if err != nil || resp.StatusCode != 200 {
+		return false
+	}
+	return true
 }
