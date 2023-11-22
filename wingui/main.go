@@ -10,8 +10,11 @@ import (
 	"runtime"
 	"syscall"
 	"time"
+	"unsafe"
 
 	"wingui/pinger"
+
+	"wingui/win"
 
 	"fyne.io/systray"
 	"gioui.org/app"
@@ -23,7 +26,7 @@ import (
 	"gioui.org/widget/material"
 )
 
-const VERSION = "v0.0.6"
+const VERSION = "v0.0.7"
 
 var count = 3
 var period = 60 // seconds
@@ -41,6 +44,83 @@ func init() {
 }
 
 func main() {
+	className := "testClass"
+
+	instance, err := win.GetModuleHandle()
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	cursor, err := win.LoadCursorResource(win.CIDC_ARROW)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	fn := func(hwnd syscall.Handle, msg uint32, wparam, lparam uintptr) uintptr {
+		switch msg {
+		case win.CWM_CLOSE:
+			win.DestroyWindow(hwnd)
+		case win.CWM_DESTROY:
+			win.PostQuitMessage(0)
+		default:
+			ret := win.DefWindowProc(hwnd, msg, wparam, lparam)
+			return ret
+		}
+		return 0
+	}
+
+	wcx := win.TWNDCLASSEXW{
+		WndProc:    syscall.NewCallback(fn),
+		Instance:   instance,
+		Cursor:     cursor,
+		Background: win.COLOR_WINDOW + 1,
+		ClassName:  syscall.StringToUTF16Ptr(className),
+	}
+
+	wcx.Size = uint32(unsafe.Sizeof(wcx))
+
+	if _, err = win.RegisterClassEx(&wcx); err != nil {
+		log.Println(err)
+		return
+	}
+
+	_, err = win.CreateWindow(
+		className,
+		"Check server",
+		win.CWS_VISIBLE|win.CWS_OVERLAPPEDWINDOW,
+		100,
+		100,
+		320,
+		80,
+		0,
+		0,
+		instance,
+	)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	for {
+		msg := win.TMSG{}
+		gotMessage, err := win.GetMessage(&msg, 0, 0, 0)
+		if err != nil {
+			log.Println(err)
+			return
+		}
+
+		if gotMessage {
+			win.TranslateMessage(&msg)
+			win.DispatchMessage(&msg)
+		} else {
+			break
+		}
+	}
+}
+
+func main2() {
 	server := "192.168.76.106"
 	quit = make(chan os.Signal)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM, syscall.SIGABRT)
@@ -126,6 +206,7 @@ func run(w *app.Window) error {
 				log.Println("Frame event")
 				//				ui.TransformOp{ui.Offset(f32.Point{X: 100.0, Y: 100.0})}.Add(&ops)
 				gtx := layout.NewContext(&ops, e)
+				gtx.Reset()
 
 				title = material.H1(th, "192.168.76.106")
 				title.Color = titleColor
@@ -137,6 +218,7 @@ func run(w *app.Window) error {
 				inset.Layout(gtx, title.Layout)
 
 				e.Frame(gtx.Ops)
+
 			}
 
 		case <-quit:
