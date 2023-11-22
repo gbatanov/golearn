@@ -8,11 +8,10 @@ package win
 import (
 	"fmt"
 	"runtime"
+	"syscall"
 	"time"
 	"unicode/utf16"
 	"unsafe"
-
-	syscall "golang.org/x/sys/windows"
 )
 
 type CompositionForm struct {
@@ -119,6 +118,9 @@ const (
 	CS_VREDRAW     = 0x0001
 	CS_OWNDC       = 0x0020
 
+	CWM_DESTROY = 0x0002
+	CWM_CLOSE   = 0x0010
+
 	CW_USEDEFAULT = -2147483648
 
 	GWL_STYLE = ^(uintptr(16) - 1) // -16
@@ -132,6 +134,8 @@ const (
 
 	CFS_POINT        = 0x0002
 	CFS_CANDIDATEPOS = 0x0040
+
+	COLOR_WINDOW = 5
 
 	HWND_TOPMOST = ^(uint32(1) - 1) // -1
 
@@ -185,6 +189,14 @@ const (
 	SW_SHOWMAXIMIZED = 3
 	SW_SHOWNORMAL    = 1
 	SW_SHOW          = 5
+
+	CWS_MAXIMIZE_BOX     = 0x00010000
+	CWS_MINIMIZEBOX      = 0x00020000
+	CWS_THICKFRAME       = 0x00040000
+	CWS_SYSMENU          = 0x00080000
+	CWS_CAPTION          = 0x00C00000
+	CWS_VISIBLE          = 0x10000000
+	CWS_OVERLAPPEDWINDOW = 0x00CF0000
 
 	SWP_FRAMECHANGED  = 0x0020
 	SWP_NOMOVE        = 0x0002
@@ -329,14 +341,14 @@ const (
 )
 
 var (
-	///	kernel32          = syscall.NewLazySystemDLL("kernel32.dll")
+	kernel32          = syscall.NewLazyDLL("kernel32.dll")
 	_GetModuleHandleW = kernel32.NewProc("GetModuleHandleW")
 	_GlobalAlloc      = kernel32.NewProc("GlobalAlloc")
 	_GlobalFree       = kernel32.NewProc("GlobalFree")
 	_GlobalLock       = kernel32.NewProc("GlobalLock")
 	_GlobalUnlock     = kernel32.NewProc("GlobalUnlock")
 
-	///	user32                       = syscall.NewLazySystemDLL("user32.dll")
+	user32                       = syscall.NewLazyDLL("user32.dll")
 	_AdjustWindowRectEx          = user32.NewProc("AdjustWindowRectEx")
 	_CallMsgFilter               = user32.NewProc("CallMsgFilterW")
 	_CloseClipboard              = user32.NewProc("CloseClipboard")
@@ -390,13 +402,13 @@ var (
 	_UnregisterClass             = user32.NewProc("UnregisterClassW")
 	_UpdateWindow                = user32.NewProc("UpdateWindow")
 
-	shcore            = syscall.NewLazySystemDLL("shcore")
+	shcore            = syscall.NewLazyDLL("shcore")
 	_GetDpiForMonitor = shcore.NewProc("GetDpiForMonitor")
 
-	gdi32          = syscall.NewLazySystemDLL("gdi32")
+	gdi32          = syscall.NewLazyDLL("gdi32")
 	_GetDeviceCaps = gdi32.NewProc("GetDeviceCaps")
 
-	imm32                    = syscall.NewLazySystemDLL("imm32")
+	imm32                    = syscall.NewLazyDLL("imm32")
 	_ImmGetContext           = imm32.NewProc("ImmGetContext")
 	_ImmGetCompositionString = imm32.NewProc("ImmGetCompositionStringW")
 	_ImmNotifyIME            = imm32.NewProc("ImmNotifyIME")
@@ -404,7 +416,7 @@ var (
 	_ImmSetCandidateWindow   = imm32.NewProc("ImmSetCandidateWindow")
 	_ImmSetCompositionWindow = imm32.NewProc("ImmSetCompositionWindow")
 
-	dwmapi                        = syscall.NewLazySystemDLL("dwmapi")
+	dwmapi                        = syscall.NewLazyDLL("dwmapi")
 	_DwmExtendFrameIntoClientArea = dwmapi.NewProc("DwmExtendFrameIntoClientArea")
 )
 
@@ -423,6 +435,27 @@ func CloseClipboard() error {
 		return fmt.Errorf("CloseClipboard: %v", err)
 	}
 	return nil
+}
+
+func CreateWindow(className, windowName string, style uint32, x, y, width, height uint32, parent, menu, instance syscall.Handle) (syscall.Handle, error) {
+	ret, _, err := _CreateWindowEx.Call(
+		uintptr(0),
+		uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(className))),
+		uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(windowName))),
+		uintptr(style),
+		uintptr(x),
+		uintptr(y),
+		uintptr(width),
+		uintptr(height),
+		uintptr(parent),
+		uintptr(menu),
+		uintptr(instance),
+		uintptr(0),
+	)
+	if ret == 0 {
+		return 0, err
+	}
+	return syscall.Handle(ret), nil
 }
 
 func CreateWindowEx(dwExStyle uint32, lpClassName uint16, lpWindowName string, dwStyle uint32, x, y, w, h int32, hWndParent, hMenu, hInstance syscall.Handle, lpParam uintptr) (syscall.Handle, error) {
@@ -444,22 +477,19 @@ func CreateWindowEx(dwExStyle uint32, lpClassName uint16, lpWindowName string, d
 	return syscall.Handle(hwnd), nil
 }
 
-/*
 func DefWindowProc(hwnd syscall.Handle, msg uint32, wparam, lparam uintptr) uintptr {
 	r, _, _ := _DefWindowProc.Call(uintptr(hwnd), uintptr(msg), wparam, lparam)
 	return r
 }
-*/
-/*
-	func DestroyWindow(hwnd syscall.Handle) {
-		_DestroyWindow.Call(uintptr(hwnd))
-	}
-*/
-/*
+
+func DestroyWindow(hwnd syscall.Handle) {
+	_DestroyWindow.Call(uintptr(hwnd))
+}
+
 func DispatchMessage(m *Msg) {
 	_DispatchMessage.Call(uintptr(unsafe.Pointer(m)))
 }
-*/
+
 func DwmExtendFrameIntoClientArea(hwnd syscall.Handle, margins Margins) error {
 	r, _, _ := _DwmExtendFrameIntoClientArea.Call(uintptr(hwnd), uintptr(unsafe.Pointer(&margins)))
 	if r != 0 {
@@ -504,15 +534,14 @@ func GetDC(hwnd syscall.Handle) (syscall.Handle, error) {
 	return syscall.Handle(hdc), nil
 }
 
-/*
-	func GetModuleHandle() (syscall.Handle, error) {
-		h, _, err := _GetModuleHandleW.Call(uintptr(0))
-		if h == 0 {
-			return 0, fmt.Errorf("GetModuleHandleW failed: %v", err)
-		}
-		return syscall.Handle(h), nil
+func GetModuleHandle() (syscall.Handle, error) {
+	h, _, err := _GetModuleHandleW.Call(uintptr(0))
+	if h == 0 {
+		return 0, fmt.Errorf("GetModuleHandleW failed: %v", err)
 	}
-*/
+	return syscall.Handle(h), nil
+}
+
 func getDeviceCaps(hdc syscall.Handle, index int32) int {
 	c, _, _ := _GetDeviceCaps.Call(uintptr(hdc), uintptr(index))
 	return int(c)
@@ -525,6 +554,7 @@ func getDpiForMonitor(hmonitor syscall.Handle, dpiType uint32) int {
 }
 
 // GetSystemDPI returns the effective DPI of the system.
+
 func GetSystemDPI() int {
 	// Check for GetDpiForMonitor, introduced in Windows 8.1.
 	if _GetDpiForMonitor.Find() == nil {
@@ -546,15 +576,14 @@ func GetKeyState(nVirtKey int32) int16 {
 	return int16(c)
 }
 
-/*
-	func GetMessage(m *Msg, hwnd syscall.Handle, wMsgFilterMin, wMsgFilterMax uint32) int32 {
-		r, _, _ := _GetMessage.Call(uintptr(unsafe.Pointer(m)),
-			uintptr(hwnd),
-			uintptr(wMsgFilterMin),
-			uintptr(wMsgFilterMax))
-		return int32(r)
-	}
-*/
+func GetMessage(m *Msg, hwnd syscall.Handle, wMsgFilterMin, wMsgFilterMax uint32) int32 {
+	r, _, _ := _GetMessage.Call(uintptr(unsafe.Pointer(m)),
+		uintptr(hwnd),
+		uintptr(wMsgFilterMin),
+		uintptr(wMsgFilterMax))
+	return int32(r)
+}
+
 func GetMessageTime() time.Duration {
 	r, _, _ := _GetMessageTime.Call()
 	return time.Duration(r) * time.Millisecond
@@ -566,6 +595,7 @@ func GetSystemMetrics(nIndex int) int {
 }
 
 // GetWindowDPI returns the effective DPI of the window.
+
 func GetWindowDPI(hwnd syscall.Handle) int {
 	// Check for GetDpiForWindow, introduced in Windows 10.
 	if _GetDpiForWindow.Find() == nil {
@@ -712,6 +742,16 @@ func LoadCursor(curID uint16) (syscall.Handle, error) {
 	}
 	return syscall.Handle(h), nil
 }
+func LoadCursorResource(cursorName uint32) (syscall.Handle, error) {
+	ret, _, err := _LoadCursor.Call(
+		uintptr(0),
+		uintptr(uint16(cursorName)),
+	)
+	if ret == 0 {
+		return 0, err
+	}
+	return syscall.Handle(ret), nil
+}
 
 func LoadImage(hInst syscall.Handle, res uint32, typ uint32, cx, cy int, fuload uint32) (syscall.Handle, error) {
 	h, _, err := _LoadImage.Call(uintptr(hInst), uintptr(res), uintptr(typ), uintptr(cx), uintptr(cy), uintptr(fuload))
@@ -756,11 +796,10 @@ func PeekMessage(m *Msg, hwnd syscall.Handle, wMsgFilterMin, wMsgFilterMax, wRem
 	return r != 0
 }
 
-/*
-	func PostQuitMessage(exitCode uintptr) {
-		_PostQuitMessage.Call(exitCode)
-	}
-*/
+func PostQuitMessage(exitCode uintptr) {
+	_PostQuitMessage.Call(exitCode)
+}
+
 func PostMessage(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) error {
 	r, _, err := _PostMessage.Call(uintptr(hwnd), uintptr(msg), wParam, lParam)
 	if r == 0 {
@@ -774,15 +813,14 @@ func ReleaseCapture() bool {
 	return r != 0
 }
 
-/*
-	func RegisterClassEx(cls *WndClassEx) (uint16, error) {
-		a, _, err := _RegisterClassExW.Call(uintptr(unsafe.Pointer(cls)))
-		if a == 0 {
-			return 0, fmt.Errorf("RegisterClassExW failed: %v", err)
-		}
-		return uint16(a), nil
+func RegisterClassEx(cls *WndClassEx) (uint16, error) {
+	a, _, err := _RegisterClassExW.Call(uintptr(unsafe.Pointer(cls)))
+	if a == 0 {
+		return 0, fmt.Errorf("RegisterClassExW failed: %v", err)
 	}
-*/
+	return uint16(a), nil
+}
+
 func ReleaseDC(hdc syscall.Handle) {
 	_ReleaseDC.Call(uintptr(hdc))
 }
@@ -832,11 +870,10 @@ func ShowWindow(hwnd syscall.Handle, nCmdShow int32) {
 	_ShowWindow.Call(uintptr(hwnd), uintptr(nCmdShow))
 }
 
-/*
-	func TranslateMessage(m *Msg) {
-		_TranslateMessage.Call(uintptr(unsafe.Pointer(m)))
-	}
-*/
+func TranslateMessage(m *Msg) {
+	_TranslateMessage.Call(uintptr(unsafe.Pointer(m)))
+}
+
 func UnregisterClass(cls uint16, hInst syscall.Handle) {
 	_UnregisterClass.Call(uintptr(cls), uintptr(hInst))
 }

@@ -26,7 +26,7 @@ import (
 	"gioui.org/widget/material"
 )
 
-const VERSION = "v0.0.7"
+const VERSION = "v0.0.8"
 
 var count = 3
 var period = 60 // seconds
@@ -52,7 +52,7 @@ func main() {
 		return
 	}
 
-	cursor, err := win.LoadCursorResource(win.CIDC_ARROW)
+	cursor, err := win.LoadCursorResource(win.IDC_ARROW)
 	if err != nil {
 		log.Println(err)
 		return
@@ -70,16 +70,16 @@ func main() {
 		}
 		return 0
 	}
-
-	wcx := win.TWNDCLASSEXW{
-		WndProc:    syscall.NewCallback(fn),
-		Instance:   instance,
-		Cursor:     cursor,
-		Background: win.COLOR_WINDOW + 1,
-		ClassName:  syscall.StringToUTF16Ptr(className),
+	cName, _ := syscall.UTF16PtrFromString(className)
+	wcx := win.WndClassEx{
+		LpfnWndProc:   syscall.NewCallback(fn),
+		HInstance:     instance,
+		HCursor:       cursor,
+		HbrBackground: win.COLOR_WINDOW + 1,
+		LpszClassName: cName,
 	}
 
-	wcx.Size = uint32(unsafe.Sizeof(wcx))
+	wcx.CbSize = uint32(unsafe.Sizeof(wcx))
 
 	if _, err = win.RegisterClassEx(&wcx); err != nil {
 		log.Println(err)
@@ -104,14 +104,10 @@ func main() {
 	}
 
 	for {
-		msg := win.TMSG{}
-		gotMessage, err := win.GetMessage(&msg, 0, 0, 0)
-		if err != nil {
-			log.Println(err)
-			return
-		}
+		msg := win.Msg{}
+		gotMessage := win.GetMessage(&msg, 0, 0, 0)
 
-		if gotMessage {
+		if gotMessage > 0 {
 			win.TranslateMessage(&msg)
 			win.DispatchMessage(&msg)
 		} else {
