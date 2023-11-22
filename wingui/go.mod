@@ -7,6 +7,7 @@ require gioui.org v0.3.1
 require github.com/prometheus-community/pro-bing v0.3.0
 
 require (
+	gioui.org/ui v0.0.0-20190926171558-ce74bc0cbaea // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/google/uuid v1.4.0 // indirect
 	github.com/tevino/abool v1.2.0 // indirect

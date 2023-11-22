@@ -7,13 +7,13 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"runtime"
 	"syscall"
 	"time"
 
 	"wingui/pinger"
 
 	"fyne.io/systray"
-	"fyne.io/systray/example/icon"
 	"gioui.org/app"
 	"gioui.org/font/gofont"
 	"gioui.org/io/system"
@@ -23,7 +23,7 @@ import (
 	"gioui.org/widget/material"
 )
 
-const VERSION = "v0.0.5"
+const VERSION = "v0.0.6"
 
 var count = 3
 var period = 60 // seconds
@@ -33,6 +33,12 @@ var stateChan chan bool
 var spinger *pinger.SPinger
 var err error
 var withCaption = true
+var imgOk []byte
+var imgErr []byte
+
+func init() {
+	fmt.Println(runtime.GOOS)
+}
 
 func main() {
 	server := "192.168.76.106"
@@ -43,7 +49,15 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-
+	imgOk, err = loadImg("./img/check.ico")
+	if err != nil {
+		imgOk = make([]byte, 0)
+	}
+	imgErr, err = loadImg("./img/stop.ico")
+	if err != nil {
+		imgErr = make([]byte, 0)
+	}
+	// основное окно
 	go func() {
 		var w *app.Window
 		// app.Decorated(false) - выводит окно без Caption
@@ -55,6 +69,8 @@ func main() {
 			app.MinSize(240, 80),
 			app.Decorated(withCaption))
 
+		w.Option()
+		//		w.Perform(system.ActionMinimize) // сворачивает окно
 		err := run(w)
 		if err != nil {
 			log.Fatal(err)
@@ -62,6 +78,7 @@ func main() {
 		os.Exit(0)
 	}()
 
+	// systray
 	go func() {
 		systray.Run(onReady, onExit)
 		if spinger.Flag {
@@ -69,13 +86,16 @@ func main() {
 		}
 	}()
 
+	// pinger
 	spinger.Run()
 	app.Main()
 }
 
 func run(w *app.Window) error {
-	msgSent := false
-	oldState := 1
+	var msgSent = false // Сообщение уже отправлено
+	var oldState = 1    // Предыдущее состояние сервера
+	var ops op.Ops
+	var title material.LabelStyle // Текст в окне (IP сервера)
 
 	th := material.NewTheme()
 	th.Shaper = text.NewShaper(text.WithCollection(gofont.Collection()))
@@ -83,26 +103,28 @@ func run(w *app.Window) error {
 	th.Bg.B = 255
 	th.Bg.R = 0
 	th.Bg.G = 0
-	var ops op.Ops
-	var title material.LabelStyle
-	green := color.NRGBA{R: 0, G: 255, B: 0, A: 255}
-	red := color.NRGBA{R: 255, G: 0, B: 0, A: 255}
-	yellow := color.NRGBA{R: 255, G: 255, B: 0, A: 255}
-	titleColor := yellow
-	for {
-		select {
-		case e := <-w.Events():
-			switch e := e.(type) {
 
+	// Цвета IP сервера
+	green := color.NRGBA{R: 0, G: 255, B: 0, A: 255}    // норма
+	red := color.NRGBA{R: 255, G: 0, B: 0, A: 255}      // авария
+	yellow := color.NRGBA{R: 255, G: 255, B: 0, A: 255} // при старте до получения реального
+	titleColor := yellow
+
+	for {
+		select { // выбирает либо события окна, либо общие
+		case e := <-w.Events():
+			fmt.Println(e)
+			switch e := e.(type) {
 			case system.DestroyEvent:
-				fmt.Println("system.DestroyEvent")
+				fmt.Println("Destroy Event")
 				if spinger.Flag {
 					spinger.Stop()
 				}
 
 				return e.Err
-			case system.FrameEvent:
+			case system.FrameEvent: //
 				log.Println("Frame event")
+				//				ui.TransformOp{ui.Offset(f32.Point{X: 100.0, Y: 100.0})}.Add(&ops)
 				gtx := layout.NewContext(&ops, e)
 
 				title = material.H1(th, "192.168.76.106")
@@ -113,11 +135,10 @@ func run(w *app.Window) error {
 				// paddings
 				inset := layout.Inset{Top: 20, Bottom: 8, Left: 8, Right: 8}
 				inset.Layout(gtx, title.Layout)
+
 				e.Frame(gtx.Ops)
 			}
 
-			// Это просто пример использования канала для внешних событий!
-			// В реале не использовать ))
 		case <-quit:
 			return nil
 		case state, ok := <-stateChan:
@@ -130,6 +151,10 @@ func run(w *app.Window) error {
 				w.Invalidate()
 				oldState = 1
 				msgSent = false
+
+				if len(imgOk) > 0 {
+					systray.SetIcon(imgOk)
+				}
 			} else {
 				titleColor = red
 				w.Invalidate()
@@ -138,6 +163,10 @@ func run(w *app.Window) error {
 					if !msgSent {
 						msgSent = sendMsg()
 					}
+					if len(imgErr) > 0 {
+						systray.SetIcon(imgErr)
+					}
+
 				}
 			}
 
@@ -146,18 +175,21 @@ func run(w *app.Window) error {
 }
 
 func onReady() {
-	systray.SetIcon(icon.Data)
+
+	if len(imgErr) > 0 {
+		systray.SetIcon(imgErr)
+		systray.SetTooltip("Check Server Health")
+
+	}
+
 	systray.SetTitle("Check Server")
-	systray.SetTooltip("Check Server Health")
-	mQuit := systray.AddMenuItem("Quit", "Quit the whole app")
+	mQuit := systray.AddMenuItem("Quit", "Выход")
 	mQuit.Enable()
 	go func() {
 		<-mQuit.ClickedCh
 		systray.Quit()
-
 	}()
-	// Sets the icon of a menu item.
-	mQuit.SetIcon(icon.Data)
+
 }
 
 func onExit() {
@@ -188,4 +220,9 @@ func sendMsg() bool {
 		return false
 	}
 	return true
+}
+
+func loadImg(path string) ([]byte, error) {
+	res, err := os.ReadFile(path)
+	return res, err
 }
