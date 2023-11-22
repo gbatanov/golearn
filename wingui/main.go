@@ -26,8 +26,9 @@ import (
 	"gioui.org/widget/material"
 )
 
-const VERSION = "v0.0.8"
+const VERSION = "v0.0.9"
 
+var server string = "192.168.76.106"
 var count = 3
 var period = 60 // seconds
 var tlgBotService = "http://192.168.76.95:8055/api/?"
@@ -44,7 +45,8 @@ func init() {
 }
 
 func main() {
-	className := "testClass"
+	className := "WindowClass"
+	classNameT := "TextClass"
 
 	instance, err := win.GetModuleHandle()
 	if err != nil {
@@ -71,6 +73,8 @@ func main() {
 		return 0
 	}
 	cName, _ := syscall.UTF16PtrFromString(className)
+	cNameT, _ := syscall.UTF16PtrFromString(classNameT)
+
 	wcx := win.WndClassEx{
 		LpfnWndProc:   syscall.NewCallback(fn),
 		HInstance:     instance,
@@ -85,8 +89,21 @@ func main() {
 		log.Println(err)
 		return
 	}
+	wcxT := win.WndClassEx{
+		LpfnWndProc:   syscall.NewCallback(fn),
+		HInstance:     instance,
+		HCursor:       cursor,
+		HbrBackground: win.COLOR_WINDOW + 1,
+		LpszClassName: cNameT,
+	}
 
-	_, err = win.CreateWindow(
+	wcxT.CbSize = uint32(unsafe.Sizeof(wcxT))
+
+	if _, err = win.RegisterClassEx(&wcxT); err != nil {
+		log.Println(err)
+	}
+
+	mHwnd, err := win.CreateWindow(
 		className,
 		"Check server",
 		win.CWS_VISIBLE|win.CWS_OVERLAPPEDWINDOW,
@@ -103,6 +120,23 @@ func main() {
 		return
 	}
 
+	tHwnd, err := win.CreateWindow(
+		classNameT,
+		"Check server",
+		win.CWS_VISIBLE|win.WS_CHILD,
+		100,
+		100,
+		300,
+		70,
+		mHwnd,
+		0,
+		instance,
+	)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+	win.SetWindowText(tHwnd, server) //Пишет текст в заголовке
+
 	for {
 		msg := win.Msg{}
 		gotMessage := win.GetMessage(&msg, 0, 0, 0)
@@ -117,7 +151,7 @@ func main() {
 }
 
 func main2() {
-	server := "192.168.76.106"
+
 	quit = make(chan os.Signal)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM, syscall.SIGABRT)
 	stateChan = make(chan bool, 1)
