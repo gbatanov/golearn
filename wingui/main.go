@@ -22,11 +22,12 @@ import (
 	"gioui.org/io/system"
 	"gioui.org/layout"
 	"gioui.org/op"
+	"gioui.org/op/paint"
 	"gioui.org/text"
 	"gioui.org/widget/material"
 )
 
-const VERSION = "v0.0.9"
+const VERSION = "v0.0.10"
 
 var server string = "192.168.76.106"
 var count = 3
@@ -44,9 +45,8 @@ func init() {
 	fmt.Println(runtime.GOOS)
 }
 
-func main() {
+func main2() {
 	className := "WindowClass"
-	classNameT := "TextClass"
 
 	instance, err := win.GetModuleHandle()
 	if err != nil {
@@ -66,6 +66,33 @@ func main() {
 			win.DestroyWindow(hwnd)
 		case win.CWM_DESTROY:
 			win.PostQuitMessage(0)
+			/*
+				case win.WM_ERASEBKGND:
+					//		rc := win.GetClientRect(hwnd)
+					hdc, err := win.GetDC(hwnd)
+					if err != nil {
+						fmt.Println(err.Error())
+						return 1
+					}
+					var cl uint32 = 0xffff00ff
+					win.SetBkColor(hdc, cl)
+					return 1
+			*/
+		// or in WM_PAINT
+		case win.WM_PAINT:
+			{
+				var ps win.PAINTSTRUCT
+				//				rc := win.GetClientRect(hwnd)
+
+				hdc := win.BeginPaint(hwnd, &ps)
+				fmt.Printf("hdc %x \n", hdc)
+				fmt.Printf("ps.Hdc %x \n", ps.Hdc)
+				ps.FErase = false
+				win.SetBkColor(hdc, 0xff0000ff) //
+				win.EndPaint(hwnd, &ps)
+				return 0
+			}
+
 		default:
 			ret := win.DefWindowProc(hwnd, msg, wparam, lparam)
 			return ret
@@ -73,8 +100,6 @@ func main() {
 		return 0
 	}
 	cName, _ := syscall.UTF16PtrFromString(className)
-	cNameT, _ := syscall.UTF16PtrFromString(classNameT)
-
 	wcx := win.WndClassEx{
 		LpfnWndProc:   syscall.NewCallback(fn),
 		HInstance:     instance,
@@ -89,27 +114,14 @@ func main() {
 		log.Println(err)
 		return
 	}
-	wcxT := win.WndClassEx{
-		LpfnWndProc:   syscall.NewCallback(fn),
-		HInstance:     instance,
-		HCursor:       cursor,
-		HbrBackground: win.COLOR_WINDOW + 1,
-		LpszClassName: cNameT,
-	}
 
-	wcxT.CbSize = uint32(unsafe.Sizeof(wcxT))
-
-	if _, err = win.RegisterClassEx(&wcxT); err != nil {
-		log.Println(err)
-	}
-
-	mHwnd, err := win.CreateWindow(
+	_, err = win.CreateWindow(
 		className,
-		"Check server",
+		server,
 		win.CWS_VISIBLE|win.CWS_OVERLAPPEDWINDOW,
 		100,
 		100,
-		320,
+		240,
 		80,
 		0,
 		0,
@@ -120,22 +132,7 @@ func main() {
 		return
 	}
 
-	tHwnd, err := win.CreateWindow(
-		classNameT,
-		"Check server",
-		win.CWS_VISIBLE|win.WS_CHILD,
-		100,
-		100,
-		300,
-		70,
-		mHwnd,
-		0,
-		instance,
-	)
-	if err != nil {
-		fmt.Println(err.Error())
-	}
-	win.SetWindowText(tHwnd, server) //Пишет текст в заголовке
+	//	win.SetWindowText(tHwnd, server) //Пишет текст в заголовке
 
 	for {
 		msg := win.Msg{}
@@ -150,7 +147,7 @@ func main() {
 	}
 }
 
-func main2() {
+func main() {
 
 	quit = make(chan os.Signal)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM, syscall.SIGABRT)
@@ -215,9 +212,9 @@ func run(w *app.Window) error {
 	th.Bg.G = 0
 
 	// Цвета IP сервера
-	green := color.NRGBA{R: 0, G: 255, B: 0, A: 255}    // норма
-	red := color.NRGBA{R: 255, G: 0, B: 0, A: 255}      // авария
-	yellow := color.NRGBA{R: 255, G: 255, B: 0, A: 255} // при старте до получения реального
+	green := color.NRGBA{R: 0, G: 200, B: 0, A: 255}    // норма
+	red := color.NRGBA{R: 200, G: 0, B: 0, A: 255}      // авария
+	yellow := color.NRGBA{R: 200, G: 200, B: 0, A: 255} // при старте до получения реального
 	titleColor := yellow
 
 	for {
@@ -233,10 +230,16 @@ func run(w *app.Window) error {
 
 				return e.Err
 			case system.FrameEvent: //
-				log.Println("Frame event")
-				//				ui.TransformOp{ui.Offset(f32.Point{X: 100.0, Y: 100.0})}.Add(&ops)
+				//				log.Println("Frame event")
 				gtx := layout.NewContext(&ops, e)
-				gtx.Reset()
+
+				if titleColor == green {
+					paint.Fill(&ops, color.NRGBA{R: 128, G: 128, B: 20, A: 128})
+				} else if titleColor == red {
+					paint.Fill(&ops, color.NRGBA{R: 0, G: 128, B: 0, A: 128})
+				} else {
+					paint.Fill(&ops, color.NRGBA{R: 128, G: 128, B: 128, A: 128})
+				}
 
 				title = material.H1(th, "192.168.76.106")
 				title.Color = titleColor
@@ -260,6 +263,7 @@ func run(w *app.Window) error {
 			}
 			if state {
 				titleColor = green
+
 				w.Invalidate()
 				oldState = 1
 				msgSent = false

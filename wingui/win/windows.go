@@ -7,12 +7,24 @@ package win
 
 import (
 	"fmt"
+	"log"
 	"runtime"
 	"syscall"
 	"time"
 	"unicode/utf16"
 	"unsafe"
 )
+
+type HDC syscall.Handle
+
+type PAINTSTRUCT struct {
+	Hdc         syscall.Handle
+	FErase      bool
+	RcPaint     Rect
+	FRestore    bool
+	FIncUpdate  bool
+	RgbReserved [32]byte
+}
 
 type CompositionForm struct {
 	dwStyle      uint32
@@ -408,6 +420,9 @@ var (
 
 	gdi32          = syscall.NewLazyDLL("gdi32")
 	_GetDeviceCaps = gdi32.NewProc("GetDeviceCaps")
+	_SetBkColor    = gdi32.NewProc("SetBkColor")
+	_BeginPaint    = user32.NewProc("BeginPaint")
+	_EndPaint      = user32.NewProc("EndPaint")
 
 	imm32                    = syscall.NewLazyDLL("imm32")
 	_ImmGetContext           = imm32.NewProc("ImmGetContext")
@@ -552,6 +567,18 @@ func getDpiForMonitor(hmonitor syscall.Handle, dpiType uint32) int {
 	var dpiX, dpiY uintptr
 	_GetDpiForMonitor.Call(uintptr(hmonitor), uintptr(dpiType), uintptr(unsafe.Pointer(&dpiX)), uintptr(unsafe.Pointer(&dpiY)))
 	return int(dpiX)
+}
+
+func BeginPaint(hwnd syscall.Handle, ps *PAINTSTRUCT) syscall.Handle {
+	hdc, _ := GetDC(hwnd)
+	_BeginPaint.Call(uintptr(hwnd), uintptr(unsafe.Pointer(ps)))
+
+	return (hdc)
+}
+
+func EndPaint(hwnd syscall.Handle, ps *PAINTSTRUCT) {
+	_EndPaint.Call(uintptr(hwnd), uintptr(unsafe.Pointer(ps)))
+
 }
 
 // GetSystemDPI returns the effective DPI of the system.
@@ -704,6 +731,28 @@ func SetWindowText(hwnd syscall.Handle, title string) {
 	_SetWindowText.Call(uintptr(hwnd), uintptr(unsafe.Pointer(wname)))
 }
 
+func SetBkColor(hwnd syscall.Handle, color uint32) {
+	color = 0x00000000
+	ret, r1, r2 := _SetBkColor.Call(uintptr(hwnd), uintptr(color))
+	log.Printf("0x%04x 0x%04x %s ", ret, r1, string(r2.Error()))
+	// r1 - ps.hdc
+	// ret - current color
+	// r2 - err.Error()
+}
+
+/*
+	func SetBkColor(hdc HDC, crColor COLORREF) COLORREF {
+		ret, _, _ := procSetBkColor.Call(
+			uintptr(hdc),
+			uintptr(crColor))
+
+		if ret == CLR_INVALID {
+			panic("SetBkColor failed")
+		}
+
+		return COLORREF(ret)
+	}
+*/
 func GlobalAlloc(size int) (syscall.Handle, error) {
 	r, _, err := _GlobalAlloc.Call(GHND, uintptr(size))
 	if r == 0 {
