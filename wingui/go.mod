@@ -7,6 +7,8 @@ require github.com/prometheus-community/pro-bing v0.3.0
 require (
 	gioui.org/cpu v0.0.0-20220412190645-f1e9e8c3b1f7 // indirect
 	gioui.org/shader v1.0.8 // indirect
+	github.com/go-gl/gl v0.0.0-20231021071112-07e5d0ea2e71 // indirect
+	github.com/go-gl/glfw/v3.3/glfw v0.0.0-20231117230948-b8b00452e321 // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/google/uuid v1.4.0 // indirect
 	github.com/tevino/abool v1.2.0 // indirect

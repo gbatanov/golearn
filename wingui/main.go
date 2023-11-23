@@ -1,33 +1,32 @@
 package main
 
 import (
-	"fmt"
 	"image/color"
-	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
-	"runtime"
+	"strconv"
+	"strings"
 	"syscall"
 	"time"
-	"unsafe"
 
 	"wingui/pinger"
-
-	"wingui/win"
 
 	"fyne.io/systray"
 	"gioui.org/app"
 	"gioui.org/font/gofont"
+	"gioui.org/io/key"
 	"gioui.org/io/system"
 	"gioui.org/layout"
 	"gioui.org/op"
+	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/text"
 	"gioui.org/widget/material"
 )
 
-const VERSION = "v0.0.10"
+const VERSION = "v0.0.11"
 
 var server string = "192.168.76.106"
 var count = 3
@@ -42,109 +41,6 @@ var imgOk []byte
 var imgErr []byte
 
 func init() {
-	fmt.Println(runtime.GOOS)
-}
-
-func main2() {
-	className := "WindowClass"
-
-	instance, err := win.GetModuleHandle()
-	if err != nil {
-		log.Println(err)
-		return
-	}
-
-	cursor, err := win.LoadCursorResource(win.IDC_ARROW)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-
-	fn := func(hwnd syscall.Handle, msg uint32, wparam, lparam uintptr) uintptr {
-		switch msg {
-		case win.CWM_CLOSE:
-			win.DestroyWindow(hwnd)
-		case win.CWM_DESTROY:
-			win.PostQuitMessage(0)
-			/*
-				case win.WM_ERASEBKGND:
-					//		rc := win.GetClientRect(hwnd)
-					hdc, err := win.GetDC(hwnd)
-					if err != nil {
-						fmt.Println(err.Error())
-						return 1
-					}
-					var cl uint32 = 0xffff00ff
-					win.SetBkColor(hdc, cl)
-					return 1
-			*/
-		// or in WM_PAINT
-		case win.WM_PAINT:
-			{
-				var ps win.PAINTSTRUCT
-				//				rc := win.GetClientRect(hwnd)
-
-				hdc := win.BeginPaint(hwnd, &ps)
-				fmt.Printf("hdc %x \n", hdc)
-				fmt.Printf("ps.Hdc %x \n", ps.Hdc)
-				ps.FErase = false
-				win.SetBkColor(hdc, 0xff0000ff) //
-				win.EndPaint(hwnd, &ps)
-				return 0
-			}
-
-		default:
-			ret := win.DefWindowProc(hwnd, msg, wparam, lparam)
-			return ret
-		}
-		return 0
-	}
-	cName, _ := syscall.UTF16PtrFromString(className)
-	wcx := win.WndClassEx{
-		LpfnWndProc:   syscall.NewCallback(fn),
-		HInstance:     instance,
-		HCursor:       cursor,
-		HbrBackground: win.COLOR_WINDOW + 1,
-		LpszClassName: cName,
-	}
-
-	wcx.CbSize = uint32(unsafe.Sizeof(wcx))
-
-	if _, err = win.RegisterClassEx(&wcx); err != nil {
-		log.Println(err)
-		return
-	}
-
-	_, err = win.CreateWindow(
-		className,
-		server,
-		win.CWS_VISIBLE|win.CWS_OVERLAPPEDWINDOW,
-		100,
-		100,
-		240,
-		80,
-		0,
-		0,
-		instance,
-	)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-
-	//	win.SetWindowText(tHwnd, server) //Пишет текст в заголовке
-
-	for {
-		msg := win.Msg{}
-		gotMessage := win.GetMessage(&msg, 0, 0, 0)
-
-		if gotMessage > 0 {
-			win.TranslateMessage(&msg)
-			win.DispatchMessage(&msg)
-		} else {
-			break
-		}
-	}
 }
 
 func main() {
@@ -176,11 +72,10 @@ func main() {
 			app.MinSize(240, 80),
 			app.Decorated(withCaption))
 
-		w.Option()
 		//		w.Perform(system.ActionMinimize) // сворачивает окно
 		err := run(w)
 		if err != nil {
-			log.Fatal(err)
+			panic(err)
 		}
 		os.Exit(0)
 	}()
@@ -195,6 +90,7 @@ func main() {
 
 	// pinger
 	spinger.Run()
+	// Запуск основного окна
 	app.Main()
 }
 
@@ -220,17 +116,13 @@ func run(w *app.Window) error {
 	for {
 		select { // выбирает либо события окна, либо общие
 		case e := <-w.Events():
-			fmt.Println(e)
 			switch e := e.(type) {
 			case system.DestroyEvent:
-				fmt.Println("Destroy Event")
 				if spinger.Flag {
 					spinger.Stop()
 				}
-
 				return e.Err
 			case system.FrameEvent: //
-				//				log.Println("Frame event")
 				gtx := layout.NewContext(&ops, e)
 
 				if titleColor == green {
@@ -240,7 +132,24 @@ func run(w *app.Window) error {
 				} else {
 					paint.Fill(&ops, color.NRGBA{R: 128, G: 128, B: 128, A: 128})
 				}
+				// register a global key listener for the escape key wrapping our entire UI.
+				area := clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops)
+				key.InputOp{
+					Tag:  w,
+					Keys: key.NameEscape,
+				}.Add(gtx.Ops)
 
+				// Выход из программы по Escape
+				for _, event := range gtx.Events(w) {
+					switch event := event.(type) {
+					case key.Event:
+						if event.Name == key.NameEscape {
+							return nil
+						}
+					}
+				}
+				// render and handle UI.
+				area.Pop()
 				title = material.H1(th, "192.168.76.106")
 				title.Color = titleColor
 				title.Alignment = text.Middle
@@ -258,7 +167,6 @@ func run(w *app.Window) error {
 			return nil
 		case state, ok := <-stateChan:
 			if !ok {
-				log.Println("channel was closed")
 				return nil
 			}
 			if state {
@@ -295,9 +203,7 @@ func onReady() {
 	if len(imgErr) > 0 {
 		systray.SetIcon(imgErr)
 		systray.SetTooltip("Check Server Health")
-
 	}
-
 	systray.SetTitle("Check Server")
 	mQuit := systray.AddMenuItem("Quit", "Выход")
 	mQuit.Enable()
@@ -316,22 +222,22 @@ func onExit() {
 func sendMsg() bool {
 	client := http.Client{}
 	client.Timeout = 10 * time.Second
+
+	params := url.Values{}
+	params.Add("msg", "server_invalid")
+	encodedData := params.Encode()
+	body := strings.NewReader(encodedData)
+
+	req, _ := http.NewRequest("POST", tlgBotService, body)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Content-Length", strconv.Itoa(len(encodedData)))
+
+	resp, err := client.Do(req)
+
 	/*
-		params := url.Values{}
-		params.Add("msg", "server_invalid")
-		encodedData := params.Encode()
-		body := strings.NewReader(encodedData)
-
-		req, _ := http.NewRequest("POST",tlgBotService, body)
-		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-		req.Header.Set("Content-Length", strconv.Itoa(len(encodedData)))
-
-		resp, err := client.Do(req)
+		url := tlgBotService + "msg=server_invalid"
+		resp, err := client.Get(url)
 	*/
-
-	url := tlgBotService + "msg=server_invalid"
-	resp, err := client.Get(url)
-
 	if err != nil || resp.StatusCode != 200 {
 		return false
 	}
