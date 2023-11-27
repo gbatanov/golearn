@@ -8,6 +8,7 @@ import (
 
 // Event is a pointer event.
 type Event struct {
+	SWin   *Window
 	Kind   Kind
 	Source Source
 	// PointerID is the id for the pointer and can be used

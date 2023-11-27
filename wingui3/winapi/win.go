@@ -49,16 +49,18 @@ type Config struct {
 	Decorated bool
 	Title     string
 	Wg        *sync.WaitGroup
+	EventChan chan Event
 }
 
 type Window struct {
-	Hwnd       syscall.Handle
-	Hdc        syscall.Handle
-	focused    bool
-	stage      Stage
-	config     Config
-	borderSize image.Point
-	cursor     syscall.Handle
+	Hwnd        syscall.Handle
+	Hdc         syscall.Handle
+	Focused     bool
+	Stage       Stage
+	Config      Config
+	BorderSize  image.Point
+	Cursor      syscall.Handle
+	PointerBtns Buttons
 }
 
 // iconID is the ID of the icon in the resource file.
@@ -106,14 +108,15 @@ func initResources() error {
 
 const dwExStyle = WS_EX_APPWINDOW | WS_EX_WINDOWEDGE
 
-func CreateNativeWindow(config Config) (*Window, error) {
+// Создание основоного окна программы
+func CreateNativeMainWindow(config Config) error {
 
 	var resErr error
 	resources.once.Do(func() {
 		resErr = initResources()
 	})
 	if resErr != nil {
-		return nil, resErr
+		return resErr
 	}
 	const dwStyle = WS_OVERLAPPEDWINDOW
 
@@ -129,11 +132,11 @@ func CreateNativeWindow(config Config) (*Window, error) {
 		resources.handle, //hInstance
 		0)                // lpParam
 	if err != nil {
-		return nil, err
+		return err
 	}
 	w := &Window{
 		Hwnd:   hwnd,
-		config: config,
+		Config: config,
 	}
 	winMap.Store(w.Hwnd, w)
 	defer winMap.Delete(w.Hwnd)
@@ -146,34 +149,17 @@ func CreateNativeWindow(config Config) (*Window, error) {
 
 	w.Hdc, err = GetDC(hwnd)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	if err := w.Loop(); err != nil {
-		panic(err)
-	}
-
-	return w, nil
-}
-
-// Adapted from https://blogs.msdn.microsoft.com/oldnewthing/20060126-00/?p=32513/
-func (w *Window) Loop() error {
 	msg := new(Msg)
-loop:
 	for {
-		//		fmt.Println(msg)
-		anim := false // w.animating
-		if anim && !PeekMessage(msg, 0, 0, 0, PM_NOREMOVE) {
-			w.draw(false)
-			continue
-		}
 		ret := GetMessage(msg, 0, 0, 0)
-		//		fmt.Println(ret)
 		switch ret {
 		case -1:
 			return errors.New("GetMessage failed")
 		case 0:
 			// WM_QUIT received.
-			break loop
+			return nil
 		}
 		TranslateMessage(msg)
 		DispatchMessage(msg)
@@ -181,6 +167,7 @@ loop:
 	return nil
 }
 
+// Основной обработчик чобытий окна
 func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintptr {
 	win, exists := winMap.Load(hwnd)
 	if !exists {
@@ -229,7 +216,7 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintptr
 				}
 			}*/
 	case WM_LBUTTONDOWN:
-		//		w.pointerButton( ButtonPrimary, true, lParam, getModifiers())
+		w.pointerButton(ButtonPrimary, true, lParam, getModifiers())
 	case WM_LBUTTONUP:
 		//		w.pointerButton( ButtonPrimary, false, lParam, getModifiers())
 	case WM_RBUTTONDOWN:
@@ -245,46 +232,50 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintptr
 		//			Kind:  Cancel,
 		//		})
 	case WM_SETFOCUS:
-		w.focused = true
-		//		w.w.Event(key.FocusEvent{Focus: true})
+		w.Focused = true
+		//		w.w.Event(FocusEvent{Focus: true})
 	case WM_KILLFOCUS:
-		w.focused = false
-		//		w.w.Event(key.FocusEvent{Focus: false})
+		w.Focused = false
+		//		w.w.Event(FocusEvent{Focus: false})
 	case WM_NCACTIVATE:
-		if w.stage >= StageInactive {
+		if w.Stage >= StageInactive {
 			if wParam == TRUE {
-				//				w.setStage(system.StageRunning)
+				w.Stage = StageRunning
 			} else {
-				//				w.setStage(system.StageInactive)
+				w.Stage = StageInactive
 			}
 		}
-	case WM_NCHITTEST:
-		if w.config.Decorated {
-			// Let the system handle it.
-			break
-		}
-		//		x, y := coordsFromlParam(lParam)
-		x := 10.0
-		y := 20.0
-		np := Point{X: int32(x), Y: int32(y)}
-		ScreenToClient(w.Hwnd, &np)
-		//		return w.hitTest(int(np.X), int(np.Y))
+		/*
+			case WM_NCHITTEST:
+				if w.Config.Decorated {
+					// Let the system handle it.
+					break
+				}
+				//		x, y := coordsFromlParam(lParam)
+				x := 10.0
+				y := 20.0
+				np := Point{X: int32(x), Y: int32(y)}
+				ScreenToClient(w.Hwnd, &np)
+				//		return w.hitTest(int(np.X), int(np.Y))
+		*/
 	case WM_MOUSEMOVE:
 
 		x, y := coordsFromlParam(lParam)
-		fmt.Println(x, y)
-		/*
-			p := f32.Point{X: float32(x), Y: float32(y)}
 
-				w.w.Event( Event{
-					Kind:       Move,
-					Source:     Mouse,
-					Position:  p,
-					Buttons:   w.pointerBtns,
-					Time:      GetMessageTime(),
-					Modifiers: getModifiers(),
-				})
-		*/
+		fmt.Println(x, y)
+
+		p := image.Point{X: x, Y: y}
+
+		w.Config.EventChan <- Event{
+			SWin:      w,
+			Kind:      Move,
+			Source:    Mouse,
+			Position:  p,
+			Buttons:   w.PointerBtns,
+			Time:      GetMessageTime(),
+			Modifiers: getModifiers(),
+		}
+
 	case WM_MOUSEWHEEL:
 		//		w.scrollEvent(wParam, lParam, false, getModifiers())
 	case WM_MOUSEHWHEEL:
@@ -300,7 +291,7 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintptr
 		w.Hwnd = 0
 		PostQuitMessage(0)
 	case WM_NCCALCSIZE:
-		if w.config.Decorated {
+		if w.Config.Decorated {
 			// Let Windows handle decorations.
 			break
 		}
@@ -327,33 +318,33 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintptr
 		w.update()
 		switch wParam {
 		case SIZE_MINIMIZED:
-			w.config.Mode = Minimized
+			w.Config.Mode = Minimized
 			//			w.setStage(system.StagePaused)
 		case SIZE_MAXIMIZED:
-			w.config.Mode = Maximized
+			w.Config.Mode = Maximized
 			//			w.setStage(system.StageRunning)
 		case SIZE_RESTORED:
-			if w.config.Mode != Fullscreen {
-				w.config.Mode = Windowed
+			if w.Config.Mode != Fullscreen {
+				w.Config.Mode = Windowed
 			}
 			//			w.setStage(system.StageRunning)
 		}
 	case WM_GETMINMAXINFO:
 		mm := (*MinMaxInfo)(unsafe.Pointer(uintptr(lParam)))
 		var bw, bh int32
-		if w.config.Decorated {
+		if w.Config.Decorated {
 			r := GetWindowRect(w.Hwnd)
 			cr := GetClientRect(w.Hwnd)
 			bw = r.Right - r.Left - (cr.Right - cr.Left)
 			bh = r.Bottom - r.Top - (cr.Bottom - cr.Top)
 		}
-		if p := w.config.MinSize; p.X > 0 || p.Y > 0 {
+		if p := w.Config.MinSize; p.X > 0 || p.Y > 0 {
 			mm.PtMinTrackSize = Point{
 				X: int32(p.X) + bw,
 				Y: int32(p.Y) + bh,
 			}
 		}
-		if p := w.config.MaxSize; p.X > 0 || p.Y > 0 {
+		if p := w.Config.MaxSize; p.X > 0 || p.Y > 0 {
 			mm.PtMaxTrackSize = Point{
 				X: int32(p.X) + bw,
 				Y: int32(p.Y) + bh,
@@ -423,10 +414,10 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintptr
 					rel :=  ImmGetCompositionValue(imc,  GCS_CURSORPOS)
 					pos = state.RunesIndex(state.UTF16Index(rng.Start) + rel)
 				}
-				w.w.SetEditorSelection(key.Range{Start: pos, End: pos})
+				w.w.SetEditorSelection(Range{Start: pos, End: pos})
 				return  TRUE
 			case  WM_IME_ENDCOMPOSITION:
-				w.w.SetComposingRegion(key.Range{Start: -1, End: -1})
+				w.w.SetComposingRegion(Range{Start: -1, End: -1})
 				return  TRUE
 		*/
 	}
@@ -571,7 +562,7 @@ func getModifiers() Modifiers {
 }
 
 func (w *Window) draw(sync bool) {
-	if w.config.Size.X == 0 || w.config.Size.Y == 0 {
+	if w.Config.Size.X == 0 || w.Config.Size.Y == 0 {
 		return
 	}
 	/*
@@ -594,12 +585,12 @@ func (w *Window) draw(sync bool) {
 func (w *Window) update() {
 
 	cr := GetClientRect(w.Hwnd)
-	w.config.Size = image.Point{
+	w.Config.Size = image.Point{
 		X: int(cr.Right - cr.Left),
 		Y: int(cr.Bottom - cr.Top),
 	}
 
-	w.borderSize = image.Pt(
+	w.BorderSize = image.Pt(
 		GetSystemMetrics(SM_CXSIZEFRAME),
 		GetSystemMetrics(SM_CYSIZEFRAME),
 	)
@@ -649,8 +640,8 @@ func (w *Window) SetCursor(cursor Cursor) {
 	if err != nil {
 		c = resources.cursor
 	}
-	w.cursor = c
-	SetCursor(w.cursor) // Win32 API function
+	w.Cursor = c
+	SetCursor(w.Cursor) // Win32 API function
 }
 
 func loadCursor(cursor Cursor) (syscall.Handle, error) {
@@ -692,4 +683,37 @@ var windowsCursor = [...]uint16{
 	CursorSouthResize:              IDC_SIZENS,
 	CursorNorthEastSouthWestResize: IDC_SIZENESW,
 	CursorNorthWestSouthEastResize: IDC_SIZENWSE,
+}
+
+func (w *Window) pointerButton(btn Buttons, press bool, lParam uintptr, kmods Modifiers) {
+	if !w.Focused {
+		SetFocus(w.Hwnd)
+	}
+
+	var kind Kind
+	if press {
+		kind = Press
+		if w.PointerBtns == 0 {
+			SetCapture(w.Hwnd)
+		}
+		w.PointerBtns |= btn
+	} else {
+		kind = Release
+		w.PointerBtns &^= btn
+		if w.PointerBtns == 0 {
+			ReleaseCapture()
+		}
+	}
+
+	x, y := coordsFromlParam(lParam)
+	p := image.Point{X: (x), Y: (y)}
+	w.Config.EventChan <- Event{
+		Kind:      kind,
+		Source:    Mouse,
+		Position:  p,
+		Buttons:   w.PointerBtns,
+		Time:      GetMessageTime(),
+		Modifiers: kmods,
+	}
+
 }
