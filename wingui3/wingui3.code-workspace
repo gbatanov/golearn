@@ -1,7 +1,12 @@
 {
 	"folders": [
 		{
+			"name": "wingui3",
 			"path": "."
+		},
+		{
+			"name": "pointer",
+			"path": "../wingui2/io/pointer"
 		}
 	],
 	"settings": {}

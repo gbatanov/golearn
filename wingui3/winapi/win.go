@@ -8,6 +8,7 @@ import (
 	"unicode"
 	"unsafe"
 
+	"github.com/gbatanov/golearn/wingui3/pointer"
 	syscall "golang.org/x/sys/windows"
 )
 
@@ -58,6 +59,7 @@ type Window struct {
 	stage      Stage
 	config     Config
 	borderSize image.Point
+	cursor     syscall.Handle
 }
 
 // iconID is the ID of the icon in the resource file.
@@ -140,7 +142,7 @@ func CreateNativeWindow(config Config) (*Window, error) {
 	SetFocus(w.Hwnd)
 	// Since the window class for the cursor is null,
 	// set it here to show the cursor.
-	//		win.SetCursor(pointer.CursorDefault)
+	w.SetCursor(pointer.CursorDefault)
 	ShowWindow(w.Hwnd, SW_SHOWNORMAL)
 
 	w.Hdc, err = GetDC(hwnd)
@@ -642,3 +644,53 @@ const (
 	NameF12            = "F12"
 	NameBack           = "Back"
 )
+
+func (w *Window) SetCursor(cursor pointer.Cursor) {
+	c, err := loadCursor(cursor)
+	if err != nil {
+		c = resources.cursor
+	}
+	w.cursor = c
+	SetCursor(w.cursor) // Win32 API function
+}
+
+func loadCursor(cursor pointer.Cursor) (syscall.Handle, error) {
+	switch cursor {
+	case pointer.CursorDefault:
+		return resources.cursor, nil
+	case pointer.CursorNone:
+		return 0, nil
+	default:
+		return LoadCursor(windowsCursor[cursor])
+	}
+}
+
+// windowsCursor contains mapping from pointer.Cursor to an IDC.
+var windowsCursor = [...]uint16{
+	pointer.CursorDefault:                  IDC_ARROW,
+	pointer.CursorNone:                     0,
+	pointer.CursorText:                     IDC_IBEAM,
+	pointer.CursorVerticalText:             IDC_IBEAM,
+	pointer.CursorPointer:                  IDC_HAND,
+	pointer.CursorCrosshair:                IDC_CROSS,
+	pointer.CursorAllScroll:                IDC_SIZEALL,
+	pointer.CursorColResize:                IDC_SIZEWE,
+	pointer.CursorRowResize:                IDC_SIZENS,
+	pointer.CursorGrab:                     IDC_SIZEALL,
+	pointer.CursorGrabbing:                 IDC_SIZEALL,
+	pointer.CursorNotAllowed:               IDC_NO,
+	pointer.CursorWait:                     IDC_WAIT,
+	pointer.CursorProgress:                 IDC_APPSTARTING,
+	pointer.CursorNorthWestResize:          IDC_SIZENWSE,
+	pointer.CursorNorthEastResize:          IDC_SIZENESW,
+	pointer.CursorSouthWestResize:          IDC_SIZENESW,
+	pointer.CursorSouthEastResize:          IDC_SIZENWSE,
+	pointer.CursorNorthSouthResize:         IDC_SIZENS,
+	pointer.CursorEastWestResize:           IDC_SIZEWE,
+	pointer.CursorWestResize:               IDC_SIZEWE,
+	pointer.CursorEastResize:               IDC_SIZEWE,
+	pointer.CursorNorthResize:              IDC_SIZENS,
+	pointer.CursorSouthResize:              IDC_SIZENS,
+	pointer.CursorNorthEastSouthWestResize: IDC_SIZENESW,
+	pointer.CursorNorthWestSouthEastResize: IDC_SIZENWSE,
+}
