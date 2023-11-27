@@ -8,7 +8,6 @@ import (
 	"unicode"
 	"unsafe"
 
-	"github.com/gbatanov/golearn/wingui3/pointer"
 	syscall "golang.org/x/sys/windows"
 )
 
@@ -142,7 +141,7 @@ func CreateNativeWindow(config Config) (*Window, error) {
 	SetFocus(w.Hwnd)
 	// Since the window class for the cursor is null,
 	// set it here to show the cursor.
-	w.SetCursor(pointer.CursorDefault)
+	w.SetCursor(CursorDefault)
 	ShowWindow(w.Hwnd, SW_SHOWNORMAL)
 
 	w.Hdc, err = GetDC(hwnd)
@@ -230,20 +229,20 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintptr
 				}
 			}*/
 	case WM_LBUTTONDOWN:
-		//		w.pointerButton(pointer.ButtonPrimary, true, lParam, getModifiers())
+		//		w.pointerButton( ButtonPrimary, true, lParam, getModifiers())
 	case WM_LBUTTONUP:
-		//		w.pointerButton(pointer.ButtonPrimary, false, lParam, getModifiers())
+		//		w.pointerButton( ButtonPrimary, false, lParam, getModifiers())
 	case WM_RBUTTONDOWN:
-		//		w.pointerButton(pointer.ButtonSecondary, true, lParam, getModifiers())
+		//		w.pointerButton( ButtonSecondary, true, lParam, getModifiers())
 	case WM_RBUTTONUP:
-		//		w.pointerButton(pointer.ButtonSecondary, false, lParam, getModifiers())
+		//		w.pointerButton( ButtonSecondary, false, lParam, getModifiers())
 	case WM_MBUTTONDOWN:
-		//		w.pointerButton(pointer.ButtonTertiary, true, lParam, getModifiers())
+		//		w.pointerButton( ButtonTertiary, true, lParam, getModifiers())
 	case WM_MBUTTONUP:
-		//		w.pointerButton(pointer.ButtonTertiary, false, lParam, getModifiers())
+		//		w.pointerButton( ButtonTertiary, false, lParam, getModifiers())
 	case WM_CANCELMODE:
-		//		w.w.Event(pointer.Event{
-		//			Kind: pointer.Cancel,
+		//		w.w.Event( Event{
+		//			Kind:  Cancel,
 		//		})
 	case WM_SETFOCUS:
 		w.focused = true
@@ -277,9 +276,9 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintptr
 		/*
 			p := f32.Point{X: float32(x), Y: float32(y)}
 
-				w.w.Event(pointer.Event{
-					Kind:      pointer.Move,
-					Source:    pointer.Mouse,
+				w.w.Event( Event{
+					Kind:       Move,
+					Source:     Mouse,
 					Position:  p,
 					Buttons:   w.pointerBtns,
 					Time:      GetMessageTime(),
@@ -645,7 +644,7 @@ const (
 	NameBack           = "Back"
 )
 
-func (w *Window) SetCursor(cursor pointer.Cursor) {
+func (w *Window) SetCursor(cursor Cursor) {
 	c, err := loadCursor(cursor)
 	if err != nil {
 		c = resources.cursor
@@ -654,43 +653,43 @@ func (w *Window) SetCursor(cursor pointer.Cursor) {
 	SetCursor(w.cursor) // Win32 API function
 }
 
-func loadCursor(cursor pointer.Cursor) (syscall.Handle, error) {
+func loadCursor(cursor Cursor) (syscall.Handle, error) {
 	switch cursor {
-	case pointer.CursorDefault:
+	case CursorDefault:
 		return resources.cursor, nil
-	case pointer.CursorNone:
+	case CursorNone:
 		return 0, nil
 	default:
 		return LoadCursor(windowsCursor[cursor])
 	}
 }
 
-// windowsCursor contains mapping from pointer.Cursor to an IDC.
+// windowsCursor contains mapping from  Cursor to an IDC.
 var windowsCursor = [...]uint16{
-	pointer.CursorDefault:                  IDC_ARROW,
-	pointer.CursorNone:                     0,
-	pointer.CursorText:                     IDC_IBEAM,
-	pointer.CursorVerticalText:             IDC_IBEAM,
-	pointer.CursorPointer:                  IDC_HAND,
-	pointer.CursorCrosshair:                IDC_CROSS,
-	pointer.CursorAllScroll:                IDC_SIZEALL,
-	pointer.CursorColResize:                IDC_SIZEWE,
-	pointer.CursorRowResize:                IDC_SIZENS,
-	pointer.CursorGrab:                     IDC_SIZEALL,
-	pointer.CursorGrabbing:                 IDC_SIZEALL,
-	pointer.CursorNotAllowed:               IDC_NO,
-	pointer.CursorWait:                     IDC_WAIT,
-	pointer.CursorProgress:                 IDC_APPSTARTING,
-	pointer.CursorNorthWestResize:          IDC_SIZENWSE,
-	pointer.CursorNorthEastResize:          IDC_SIZENESW,
-	pointer.CursorSouthWestResize:          IDC_SIZENESW,
-	pointer.CursorSouthEastResize:          IDC_SIZENWSE,
-	pointer.CursorNorthSouthResize:         IDC_SIZENS,
-	pointer.CursorEastWestResize:           IDC_SIZEWE,
-	pointer.CursorWestResize:               IDC_SIZEWE,
-	pointer.CursorEastResize:               IDC_SIZEWE,
-	pointer.CursorNorthResize:              IDC_SIZENS,
-	pointer.CursorSouthResize:              IDC_SIZENS,
-	pointer.CursorNorthEastSouthWestResize: IDC_SIZENESW,
-	pointer.CursorNorthWestSouthEastResize: IDC_SIZENWSE,
+	CursorDefault:                  IDC_ARROW,
+	CursorNone:                     0,
+	CursorText:                     IDC_IBEAM,
+	CursorVerticalText:             IDC_IBEAM,
+	CursorPointer:                  IDC_HAND,
+	CursorCrosshair:                IDC_CROSS,
+	CursorAllScroll:                IDC_SIZEALL,
+	CursorColResize:                IDC_SIZEWE,
+	CursorRowResize:                IDC_SIZENS,
+	CursorGrab:                     IDC_SIZEALL,
+	CursorGrabbing:                 IDC_SIZEALL,
+	CursorNotAllowed:               IDC_NO,
+	CursorWait:                     IDC_WAIT,
+	CursorProgress:                 IDC_APPSTARTING,
+	CursorNorthWestResize:          IDC_SIZENWSE,
+	CursorNorthEastResize:          IDC_SIZENESW,
+	CursorSouthWestResize:          IDC_SIZENESW,
+	CursorSouthEastResize:          IDC_SIZENWSE,
+	CursorNorthSouthResize:         IDC_SIZENS,
+	CursorEastWestResize:           IDC_SIZEWE,
+	CursorWestResize:               IDC_SIZEWE,
+	CursorEastResize:               IDC_SIZEWE,
+	CursorNorthResize:              IDC_SIZENS,
+	CursorSouthResize:              IDC_SIZENS,
+	CursorNorthEastSouthWestResize: IDC_SIZENESW,
+	CursorNorthWestSouthEastResize: IDC_SIZENWSE,
 }

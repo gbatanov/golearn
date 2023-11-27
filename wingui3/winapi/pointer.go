@@ -1,13 +1,9 @@
-// SPDX-License-Identifier: Unlicense OR MIT
-
-package pointer
+package winapi
 
 import (
 	"image"
 	"strings"
 	"time"
-
-	"github.com/gbatanov/golearn/wingui3/winapi"
 )
 
 // Event is a pointer event.
@@ -35,7 +31,7 @@ type Event struct {
 	Scroll image.Point
 	// Modifiers is the set of active modifiers when
 	// the mouse button was pressed.
-	Modifiers winapi.Modifiers
+	Modifiers Modifiers
 }
 
 // PassOp sets the pass-through mode. InputOps added while the pass-through
