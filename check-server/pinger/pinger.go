@@ -1,7 +1,6 @@
 package pinger
 
 import (
-	"log"
 	"time"
 
 	ping "github.com/prometheus-community/pro-bing"
@@ -56,7 +55,6 @@ func (spinger *SPinger) createPinger() (*ping.Pinger, error) {
 func (pinger *SPinger) finish(stats *ping.Statistics) {
 	pinger.PacketsSent = stats.PacketsSent
 	pinger.PacketRecv = stats.PacketsRecv
-	//	log.Printf("%d:%d", stats.PacketsSent, stats.PacketsRecv)
 }
 
 func (pinger *SPinger) Run() {
@@ -77,7 +75,7 @@ func (pinger *SPinger) Run() {
 		if err == nil {
 			state = pinger.PacketsSent > 0 && pinger.PacketRecv > 0
 		}
-		log.Println(state)
+
 		pinger.StateChan <- state
 		n := pinger.Period / 5
 		for n > 0 && pinger.Flag {
