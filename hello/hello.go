@@ -41,7 +41,7 @@ import (
 	"github.com/matishsiao/goInfo"
 )
 
-const Version string = "v0.2.11"
+const Version string = "v0.2.12"
 
 var Os string = ""
 
@@ -2789,6 +2789,22 @@ func funcDb() {
 	}
 }
 
+/*
+// Загрузка иконки в текстовый файл для включения в тело программы
+func loadImg(name string) ([]byte, error) {
+	res, err := os.ReadFile(".\\img\\" + name + ".ico")
+	if err == nil {
+		res2 := name + "=[]byte{"
+		for _, b := range res {
+			res2 = res2 + fmt.Sprintf("0x%02x", b) + ","
+		}
+		res2 = res2 + "}"
+		res2 = strings.Replace(res2, ",}", "}", 1)
+		os.WriteFile(name+".txt", []byte(res2), syscall.O_RDWR)
+	}
+	return res, err
+}
+*/
 /*
 Контекст пакета определяет тип контекста, который содержит крайние сроки,
 сигналы отмены и другие значения в области запроса через границы API и между процессами.
