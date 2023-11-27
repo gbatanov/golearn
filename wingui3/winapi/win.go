@@ -1,6 +1,7 @@
 package winapi
 
 import (
+	"errors"
 	"fmt"
 	"image"
 	"sync"
@@ -118,10 +119,10 @@ func CreateNativeWindow(config Config) (*Window, error) {
 	hwnd, err := CreateWindowEx(
 		dwExStyle,
 		resources.class,              //lpClassame
-		"",                           // lpWindowName
-		dwStyle|WS_EX_APPWINDOW,      //WS_CLIPSIBLINGS|WS_CLIPCHILDREN, //dwStyle
+		config.Title,                 // lpWindowName
+		dwStyle,                      //WS_CLIPSIBLINGS|WS_CLIPCHILDREN, //dwStyle
 		CW_USEDEFAULT, CW_USEDEFAULT, //x, y
-		CW_USEDEFAULT, CW_USEDEFAULT, //w, h
+		int32(config.Size.X), int32(config.Size.Y), //w, h
 		0,                //hWndParent
 		0,                // hMenu
 		resources.handle, //hInstance
@@ -135,12 +136,48 @@ func CreateNativeWindow(config Config) (*Window, error) {
 	}
 	winMap.Store(w.Hwnd, w)
 	defer winMap.Delete(w.Hwnd)
+	SetForegroundWindow(w.Hwnd)
+	SetFocus(w.Hwnd)
+	// Since the window class for the cursor is null,
+	// set it here to show the cursor.
+	//		win.SetCursor(pointer.CursorDefault)
+	ShowWindow(w.Hwnd, SW_SHOWNORMAL)
 
 	w.Hdc, err = GetDC(hwnd)
 	if err != nil {
 		return nil, err
 	}
+	if err := w.Loop(); err != nil {
+		panic(err)
+	}
+
 	return w, nil
+}
+
+// Adapted from https://blogs.msdn.microsoft.com/oldnewthing/20060126-00/?p=32513/
+func (w *Window) Loop() error {
+	msg := new(Msg)
+loop:
+	for {
+		//		fmt.Println(msg)
+		anim := false // w.animating
+		if anim && !PeekMessage(msg, 0, 0, 0, PM_NOREMOVE) {
+			w.draw(false)
+			continue
+		}
+		ret := GetMessage(msg, 0, 0, 0)
+		//		fmt.Println(ret)
+		switch ret {
+		case -1:
+			return errors.New("GetMessage failed")
+		case 0:
+			// WM_QUIT received.
+			break loop
+		}
+		TranslateMessage(msg)
+		DispatchMessage(msg)
+	}
+	return nil
 }
 
 func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintptr {
