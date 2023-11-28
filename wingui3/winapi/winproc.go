@@ -1,8 +1,8 @@
 package winapi
 
 import (
-	"fmt"
 	"image"
+	"log"
 	"unicode"
 	"unsafe"
 
@@ -17,14 +17,13 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintptr
 	}
 
 	w := win.(*Window)
-	if w.Config.Title != "GsbTest" {
-		return windowChildProc(hwnd, msg, wParam, lParam)
-	}
 
 	switch msg {
+	case WM_NCCREATE:
+		log.Printf("Main 0x%04x", msg)
 	case WM_CREATE:
+		log.Printf("Main 0x%04x", msg)
 
-		return DefWindowProc(hwnd, msg, wParam, lParam)
 	case WM_UNICHAR:
 		if wParam == UNICODE_NOCHAR {
 			// Tell the system that we accept WM_UNICHAR messages.
@@ -96,24 +95,23 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintptr
 				w.Stage = StageInactive
 			}
 		}
-		/*
-			case WM_NCHITTEST:
-				if w.Config.Decorated {
-					// Let the system handle it.
-					break
-				}
-				//		x, y := coordsFromlParam(lParam)
-				x := 10.0
-				y := 20.0
-				np := Point{X: int32(x), Y: int32(y)}
-				ScreenToClient(w.Hwnd, &np)
-				//		return w.hitTest(int(np.X), int(np.Y))
-		*/
+
+	case WM_NCHITTEST:
+		if w.Config.Decorated {
+			// Let the system handle it.
+			break
+		}
+		x, y := coordsFromlParam(lParam)
+
+		np := Point{X: int32(x), Y: int32(y)}
+		ScreenToClient(w.Hwnd, &np)
+		return w.hitTest(int(np.X), int(np.Y))
+
 	case WM_MOUSEMOVE:
 
 		x, y := coordsFromlParam(lParam)
 
-		fmt.Println(x, y)
+		//		fmt.Println(x, y)
 
 		p := image.Point{X: x, Y: y}
 
@@ -165,6 +163,7 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintptr
 		return 0
 	case WM_PAINT:
 		w.draw(true)
+
 	case WM_SIZE:
 		w.update()
 		switch wParam {
@@ -203,13 +202,13 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintptr
 		}
 		return 0
 	case WM_SETCURSOR:
-		/*
-			w.cursorIn = (lParam & 0xffff) == HTCLIENT
-			if w.cursorIn {
-				SetCursor(w.cursor)
-				return TRUE
-			}
-		*/
+
+		w.CursorIn = (lParam & 0xffff) == HTCLIENT
+		if w.CursorIn {
+			SetCursor(w.Cursor)
+			return TRUE
+		}
+
 		/*
 			case _WM_WAKEUP:
 			w.w.Event(wakeupEvent{})
@@ -274,4 +273,49 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintptr
 	}
 
 	return DefWindowProc(hwnd, msg, wParam, lParam)
+}
+
+// hitTest returns the non-client area hit by the point, needed to
+// process WM_NCHITTEST.
+func (w *Window) hitTest(x, y int) uintptr {
+	if w.Config.Mode == Fullscreen {
+		return HTCLIENT
+	}
+	if w.Config.Mode != Windowed {
+		// Only windowed mode should allow resizing.
+		return HTCLIENT
+	}
+	// Check for resize handle before system actions; otherwise it can be impossible to
+	// resize a custom-decorations window when the system move area is flush with the
+	// edge of the window.
+	top := y <= w.BorderSize.Y
+	bottom := y >= w.Config.Size.Y-w.BorderSize.Y
+	left := x <= w.BorderSize.X
+	right := x >= w.Config.Size.X-w.BorderSize.X
+	switch {
+	case top && left:
+		return HTTOPLEFT
+	case top && right:
+		return HTTOPRIGHT
+	case bottom && left:
+		return HTBOTTOMLEFT
+	case bottom && right:
+		return HTBOTTOMRIGHT
+	case top:
+		return HTTOP
+	case bottom:
+		return HTBOTTOM
+	case left:
+		return HTLEFT
+	case right:
+		return HTRIGHT
+	}
+	/*
+		p := f32.Pt(float32(x), float32(y))
+
+		if a, ok := w.w.ActionAt(p); ok && a == system.ActionMove {
+			return  HTCAPTION
+		}
+	*/
+	return HTCLIENT
 }

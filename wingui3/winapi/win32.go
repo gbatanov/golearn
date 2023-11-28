@@ -7,6 +7,7 @@ package winapi
 
 import (
 	"fmt"
+	"log"
 	"runtime"
 	"time"
 	"unicode/utf16"
@@ -14,6 +15,11 @@ import (
 
 	syscall "golang.org/x/sys/windows"
 )
+
+// NRGBA represents a non-alpha-premultiplied 32-bit color.
+type NRGBA struct {
+	R, G, B, A uint8
+}
 
 type CompositionForm struct {
 	dwStyle      uint32
@@ -244,44 +250,47 @@ const (
 
 	UNICODE_NOCHAR = 65535
 
-	WM_CANCELMODE           = 0x001F
-	WM_CHAR                 = 0x0102
-	WM_CLOSE                = 0x0010
 	WM_CREATE               = 0x0001
-	WM_DPICHANGED           = 0x02E0
 	WM_DESTROY              = 0x0002
+	WM_SIZE                 = 0x0005
+	WM_SETFOCUS             = 0x0007
+	WM_KILLFOCUS            = 0x0008
+	WM_PAINT                = 0x000F
+	WM_CLOSE                = 0x0010
+	WM_QUIT                 = 0x0012
 	WM_ERASEBKGND           = 0x0014
+	WM_SHOWWINDOW           = 0x0018
+	WM_ACTIVATEAPP          = 0x001C
+	WM_CANCELMODE           = 0x001F
+	WM_SETCURSOR            = 0x0020
+	WM_CHILDACTIVATE        = 0x0022
 	WM_GETMINMAXINFO        = 0x0024
-	WM_IME_COMPOSITION      = 0x010F
-	WM_IME_ENDCOMPOSITION   = 0x010E
-	WM_IME_STARTCOMPOSITION = 0x010D
+	WM_WINDOWPOSCHANGED     = 0x0047
+	WM_NCCREATE             = 0x0081
+	WM_NCCALCSIZE           = 0x0083
+	WM_NCHITTEST            = 0x0084
+	WM_NCACTIVATE           = 0x0086
 	WM_KEYDOWN              = 0x0100
 	WM_KEYUP                = 0x0101
-	WM_KILLFOCUS            = 0x0008
-	WM_LBUTTONDOWN          = 0x0201
-	WM_LBUTTONUP            = 0x0202
-	WM_MBUTTONDOWN          = 0x0207
-	WM_MBUTTONUP            = 0x0208
-	WM_MOUSEMOVE            = 0x0200
-	WM_MOUSEWHEEL           = 0x020A
-	WM_MOUSEHWHEEL          = 0x020E
-	WM_NCACTIVATE           = 0x0086
-	WM_NCHITTEST            = 0x0084
-	WM_NCCALCSIZE           = 0x0083
-	WM_PAINT                = 0x000F
-	WM_QUIT                 = 0x0012
-	WM_SETCURSOR            = 0x0020
-	WM_SETFOCUS             = 0x0007
-	WM_SHOWWINDOW           = 0x0018
-	WM_SIZE                 = 0x0005
+	WM_CHAR                 = 0x0102
 	WM_SYSKEYDOWN           = 0x0104
 	WM_SYSKEYUP             = 0x0105
+	WM_UNICHAR              = 0x0109
+	WM_IME_STARTCOMPOSITION = 0x010D
+	WM_IME_ENDCOMPOSITION   = 0x010E
+	WM_IME_COMPOSITION      = 0x010F
+	WM_TIMER                = 0x0113
+	WM_MOUSEMOVE            = 0x0200
+	WM_LBUTTONDOWN          = 0x0201
+	WM_LBUTTONUP            = 0x0202
 	WM_RBUTTONDOWN          = 0x0204
 	WM_RBUTTONUP            = 0x0205
-	WM_TIMER                = 0x0113
-	WM_UNICHAR              = 0x0109
+	WM_MBUTTONDOWN          = 0x0207
+	WM_MBUTTONUP            = 0x0208
+	WM_MOUSEWHEEL           = 0x020A
+	WM_MOUSEHWHEEL          = 0x020E
+	WM_DPICHANGED           = 0x02E0
 	WM_USER                 = 0x0400
-	WM_WINDOWPOSCHANGED     = 0x0047
 
 	WS_BORDER = 0x00800000
 	WS_CHILD  = 0x40000000
@@ -348,6 +357,7 @@ var (
 	_DestroyWindow               = user32.NewProc("DestroyWindow")
 	_DispatchMessage             = user32.NewProc("DispatchMessageW")
 	_EmptyClipboard              = user32.NewProc("EmptyClipboard")
+	_FillRect                    = user32.NewProc("FillRect")
 	_GetWindowRect               = user32.NewProc("GetWindowRect")
 	_GetClientRect               = user32.NewProc("GetClientRect")
 	_GetClipboardData            = user32.NewProc("GetClipboardData")
@@ -361,6 +371,7 @@ var (
 	_GetWindowLong               = user32.NewProc("GetWindowLongPtrW")
 	_GetWindowLong32             = user32.NewProc("GetWindowLongW")
 	_GetWindowPlacement          = user32.NewProc("GetWindowPlacement")
+	_InvalidateRect              = user32.NewProc("InvalidateRect")
 	_KillTimer                   = user32.NewProc("KillTimer")
 	_LoadCursor                  = user32.NewProc("LoadCursorW")
 	_LoadImage                   = user32.NewProc("LoadImageW")
@@ -388,17 +399,25 @@ var (
 	_SetWindowLong32             = user32.NewProc("SetWindowLongW")
 	_SetWindowPlacement          = user32.NewProc("SetWindowPlacement")
 	_SetWindowPos                = user32.NewProc("SetWindowPos")
-	_SetWindowText               = user32.NewProc("SetWindowTextW")
-	_TranslateMessage            = user32.NewProc("TranslateMessage")
-	_UnregisterClass             = user32.NewProc("UnregisterClassW")
-	_UpdateWindow                = user32.NewProc("UpdateWindow")
-	_EnableWindow                = user32.NewProc("EnableWindow")
+
+	_SetWindowText    = user32.NewProc("SetWindowTextW")
+	_TranslateMessage = user32.NewProc("TranslateMessage")
+	_UnregisterClass  = user32.NewProc("UnregisterClassW")
+	_UpdateWindow     = user32.NewProc("UpdateWindow")
+	_EnableWindow     = user32.NewProc("EnableWindow")
 
 	shcore            = syscall.NewLazySystemDLL("shcore")
 	_GetDpiForMonitor = shcore.NewProc("GetDpiForMonitor")
 
-	gdi32          = syscall.NewLazySystemDLL("gdi32")
-	_GetDeviceCaps = gdi32.NewProc("GetDeviceCaps")
+	gdi32           = syscall.NewLazySystemDLL("gdi32")
+	_GetDeviceCaps  = gdi32.NewProc("GetDeviceCaps")
+	_SetBkColor     = gdi32.NewProc("SetBkColor")
+	_SetBkMode      = gdi32.NewProc("SetBkMode")
+	_BeginPath      = gdi32.NewProc("BeginPath")
+	_EndPath        = gdi32.NewProc("EndPath")
+	_TextOut        = gdi32.NewProc("TextOutW")
+	_SetTextColor   = gdi32.NewProc("SetTextColor")
+	_GetStockObject = gdi32.NewProc("GetStockObject")
 
 	imm32                    = syscall.NewLazySystemDLL("imm32")
 	_ImmGetContext           = imm32.NewProc("ImmGetContext")
@@ -429,11 +448,12 @@ func CloseClipboard() error {
 	return nil
 }
 
-func CreateWindowEx(dwExStyle uint32, lpClassName uint16, lpWindowName string, dwStyle uint32, x, y, w, h int32, hWndParent, hMenu, hInstance syscall.Handle, lpParam uintptr) (syscall.Handle, error) {
+func CreateWindowEx(dwExStyle uint32, lpClassName string, lpWindowName string, dwStyle uint32, x, y, w, h int32, hWndParent, hMenu, hInstance syscall.Handle, lpParam uintptr) (syscall.Handle, error) {
+	cname := syscall.StringToUTF16Ptr(lpClassName)
 	wname := syscall.StringToUTF16Ptr(lpWindowName)
 	hwnd, _, err := _CreateWindowEx.Call(
 		uintptr(dwExStyle),
-		uintptr(lpClassName),
+		uintptr(unsafe.Pointer(cname)),
 		uintptr(unsafe.Pointer(wname)),
 		uintptr(dwStyle),
 		uintptr(x), uintptr(y),
@@ -582,6 +602,11 @@ func GetWindowPlacement(hwnd syscall.Handle) *WindowPlacement {
 	return &wp
 }
 
+func InvalidateRect(hwnd syscall.Handle, r *Rect, erase int32) {
+	_InvalidateRect.Call(uintptr(hwnd), uintptr(unsafe.Pointer(r)), uintptr(erase))
+
+}
+
 func GetMonitorInfo(hwnd syscall.Handle) MonitorInfo {
 	var mi MonitorInfo
 	mi.cbSize = uint32(unsafe.Sizeof(mi))
@@ -670,6 +695,50 @@ func SetWindowPos(hwnd syscall.Handle, hwndInsertAfter uint32, x, y, dx, dy int3
 func SetWindowText(hwnd syscall.Handle, title string) {
 	wname := syscall.StringToUTF16Ptr(title)
 	_SetWindowText.Call(uintptr(hwnd), uintptr(unsafe.Pointer(wname)))
+}
+
+func SetBkColor(hdc syscall.Handle, color uint32) {
+	r1, r2, r3 := _SetBkColor.Call(uintptr(hdc), uintptr(color))
+	log.Printf("SetBkColor 0x%04x, 0x%08x %s", r1, r2, string(r3.Error()))
+}
+
+func SetBkMode(hdc syscall.Handle, mode uint32) {
+	r1, r2, r3 := _SetBkMode.Call(uintptr(hdc), uintptr(mode))
+	log.Printf("SetBkMode 0x%04x, 0x%08x %s", r1, r2, string(r3.Error()))
+}
+
+func SetTextColor(hdc syscall.Handle, color uint32) {
+	r1, r2, r3 := _SetTextColor.Call(uintptr(hdc), uintptr(color))
+	log.Printf("SetTextColor 0x%04x, 0x%08x %s", r1, r2, string(r3.Error()))
+}
+
+func BeginPath(hdc syscall.Handle) {
+	r1, r2, r3 := _BeginPath.Call(uintptr(hdc))
+	log.Println("BeginPath", r1, r2, r3)
+}
+
+func EndPath(hdc syscall.Handle) {
+	r1, r2, r3 := _EndPath.Call(uintptr(hdc))
+	log.Println("EndPath", r1, r2, r3)
+}
+
+func TextOut(hdc syscall.Handle, x int32, y int32, text *[]byte, len int32) {
+	//	_text := syscall.StringToUTF16Ptr(text)
+	//	length := len(*text)
+	r1, r2, r3 := _TextOut.Call(uintptr(hdc), uintptr(x), uintptr(y), uintptr(unsafe.Pointer(text)), uintptr(len))
+	log.Println("TextOut", r1, r2, r3)
+}
+
+func GetStockObject(i int32) syscall.Handle {
+	r1, r2, r3 := _GetStockObject.Call(uintptr(i))
+	log.Println("GetStockObject", r1, r2, r3)
+	return syscall.Handle(r1)
+
+}
+func FillRect(hdc syscall.Handle, r *Rect, hbr syscall.Handle) {
+	r1, r2, r3 := _FillRect.Call(uintptr(hdc), uintptr(unsafe.Pointer(r)), uintptr(unsafe.Pointer(hbr)))
+	log.Println("FillRect", r1, r2, r3)
+
 }
 
 func GlobalAlloc(size int) (syscall.Handle, error) {

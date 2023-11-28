@@ -13,37 +13,40 @@ var ChildId = 1
 
 func CreateChildWindow(parent *Window, x, y, width, height int32) (*Window, error) {
 	var resErr error
-	resources.once.Do(func() {
+	resourceChild.once.Do(func() {
 		resErr = initResources(true)
 	})
 	if resErr != nil {
 		return nil, resErr
 	}
-	const dwStyle = WS_THICKFRAME
+	const dwStyle = /*WS_THICKFRAME |*/ WS_CHILD | WS_VISIBLE | WS_BORDER
 
 	hwnd, err := CreateWindowEx(
-		dwExStyle,
-		resources.class,    //lpClassame
-		"Child",            // lpWindowName
-		WS_CHILD|WS_BORDER, //dwStyle
-		x, y,               //x, y
+		0,
+		"Static", // resourceChild.class, //lpClassName
+		"Child",  // lpWindowName
+		dwStyle,  //dwStyle
+		x, y,     //x, y
 		width, height, //w, h
-		parent.Hwnd,      //hWndParent
-		0,                // hMenu
-		resources.handle, //hInstance
-		0)                // lpParam
+		parent.Hwnd,          //hWndParent
+		0,                    // hMenu
+		resourceChild.handle, //hInstance
+		0)                    // lpParam
 	if err != nil {
 		return nil, err
 	}
 	w := &Window{
+		Id:   int32(ChildId),
 		Hwnd: hwnd,
 		Config: &Config{
-			Title:     "Child",
+			Decorated: false,
+			Title:     "Childer",
 			EventChan: parent.Config.EventChan,
 			Size:      image.Pt(int(width), int(height)),
 			MinSize:   parent.Config.MinSize,
 			MaxSize:   parent.Config.MaxSize,
 			Position:  image.Pt(int(x), int(y)),
+			Mode:      Windowed,
 		},
 		Parent:    parent,
 		Childrens: nil,
@@ -52,43 +55,32 @@ func CreateChildWindow(parent *Window, x, y, width, height int32) (*Window, erro
 	if err != nil {
 		return nil, err
 	}
+	w.SetCursor(CursorDefault)
 	parent.Childrens = append(parent.Childrens, w)
-	ShowWindow(hwnd, SW_SHOW)
-	SetForegroundWindow(hwnd)
-	SetFocus(hwnd)
-	EnableWindow(hwnd, int32(1))
+	//	ShowWindow(hwnd, SW_SHOWNORMAL)
+	//	SetForegroundWindow(hwnd)
+	//	SetFocus(hwnd)
+	//	EnableWindow(hwnd, int32(1))
+
 	ChildId += 1
 	return w, nil
 }
 
 func windowChildProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintptr {
-	win, exists := winMap.Load(hwnd)
+	_, exists := winMap.Load(hwnd)
 	if !exists {
 		return DefWindowProc(hwnd, msg, wParam, lParam)
 	}
-	w := win.(*Window)
-	if w.Config.Title == "GsbTest" {
-		return windowProc(hwnd, msg, wParam, lParam)
+	if msg == WM_CREATE {
+		panic("WM_CREATE")
 	}
-
-	switch msg {
-	case WM_MOUSEMOVE:
-
-		x, y := coordsFromlParam(lParam)
-
-		log.Println(x, y)
-		p := image.Point{X: x, Y: y}
-
-		w.Config.EventChan <- Event{
-			SWin:      w,
-			Kind:      Move,
-			Source:    Mouse,
-			Position:  p,
-			Buttons:   w.PointerBtns,
-			Time:      GetMessageTime(),
-			Modifiers: getModifiers(),
-		}
+	if msg == WM_NCCREATE {
+		panic("WM_NCCREATE")
 	}
+	if msg == WM_CHILDACTIVATE {
+		panic("WM_CHILDACTIVATE")
+	}
+	log.Printf("Child 0x%04x", msg)
+	return windowProc(hwnd, msg, wParam, lParam)
 
-	return DefWindowProc(hwnd, msg, wParam, lParam)
 }

@@ -4,18 +4,17 @@ import (
 	"fmt"
 	"image"
 	"log"
-	"sync"
 
 	"github.com/gbatanov/golearn/wingui3/winapi"
 )
 
-const VERSION = "v0.0.7"
+const VERSION = "v0.0.8"
 
 var mouseX, mouseY int = 0, 0
 var startMove bool = false
 
 func main() {
-	var wg sync.WaitGroup
+
 	var config winapi.Config
 	config.Decorated = true
 	config.Position = image.Pt(20, 20)
@@ -23,7 +22,6 @@ func main() {
 	config.MinSize = image.Pt(100, 100)
 	config.Size = image.Pt(320, 120)
 	config.Title = "GsbTest"
-	config.Wg = &wg
 	config.EventChan = make(chan winapi.Event, 128)
 
 	go func() {
@@ -54,29 +52,35 @@ func main() {
 func MouseHandler(ev winapi.Event) {
 	switch ev.Kind {
 	case winapi.Move:
-		log.Println("Mouse move ", ev.Position)
+		//		log.Println("Mouse move ", ev.Position)
 		if startMove {
 
-			ev.SWin.Config.Position.X += (ev.Position.X)
-			ev.SWin.Config.Position.Y += (ev.Position.Y)
-			winapi.SetWindowPos(
-				ev.SWin.Hwnd,
-				0, int32(ev.SWin.Config.Position.X), int32(ev.SWin.Config.Position.Y),
-				int32(ev.SWin.Config.Size.X), int32(ev.SWin.Config.Size.Y),
-				winapi.SWP_NOSIZE)
-			mouseX = ev.Position.X
-			mouseY = ev.Position.Y
+			if ev.SWin.Id == 0 {
+				ev.SWin.Config.Position.X += (ev.Position.X)
+				ev.SWin.Config.Position.Y += (ev.Position.Y)
 
+				winapi.SetWindowPos( // MoveWindow работает хуже
+					ev.SWin.Hwnd,
+					0, int32(ev.SWin.Config.Position.X), int32(ev.SWin.Config.Position.Y),
+					int32(ev.SWin.Config.Size.X), int32(ev.SWin.Config.Size.Y),
+					winapi.SWP_NOSIZE)
+
+				mouseX = ev.Position.X
+				mouseY = ev.Position.Y
+			}
 		}
 
 	case winapi.Press:
 		log.Println("Mouse key press ", ev.Position)
-		if ev.SWin.PointerBtns == winapi.ButtonPrimary {
+		if ev.SWin.Id == 0 && ev.SWin.PointerBtns == winapi.ButtonPrimary {
 			startMove = true
 		}
 	case winapi.Release:
 		log.Println("Mouse key release ", ev.Position)
-		startMove = false
-
+		if ev.SWin.Id == 0 {
+			startMove = false
+			r := winapi.GetClientRect(ev.SWin.Hwnd)
+			winapi.InvalidateRect(ev.SWin.Hwnd, &r, 1)
+		}
 	}
 }

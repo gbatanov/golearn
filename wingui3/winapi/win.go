@@ -48,11 +48,11 @@ type Config struct {
 	Mode      WindowMode
 	Decorated bool
 	Title     string
-	Wg        *sync.WaitGroup
 	EventChan chan Event
 }
 
 type Window struct {
+	Id          int32 // 0 у главного, начиная с 1 у дочерних
 	Hwnd        syscall.Handle
 	Hdc         syscall.Handle
 	Focused     bool
@@ -63,20 +63,26 @@ type Window struct {
 	PointerBtns Buttons //Кнопки мыши
 	Parent      *Window
 	Childrens   []*Window
+	// cursorIn tracks whether the cursor was inside the window according
+	// to the most recent WM_SETCURSOR.
+	CursorIn bool
 }
 
 // iconID is the ID of the icon in the resource file.
 const iconID = 1
 
-var resources struct {
+type resources struct {
 	once sync.Once
 	// handle is the module handle from GetModuleHandle.
 	handle syscall.Handle
 	// class is window class from RegisterClassEx.
-	class uint16
+	class string
 	// cursor is the arrow cursor resource.
 	cursor syscall.Handle
 }
+
+var resourceMain resources = resources{}
+var resourceChild resources = resources{}
 
 // initResources initializes the resources global.
 func initResources(child bool) error {
@@ -85,34 +91,40 @@ func initResources(child bool) error {
 	if err != nil {
 		return err
 	}
-	resources.handle = hInst
+
 	c, err := LoadCursor(IDC_ARROW)
 	if err != nil {
 		return err
 	}
-	resources.cursor = c
+
 	icon, _ := LoadImage(hInst, iconID, IMAGE_ICON, 0, 0, LR_DEFAULTSIZE|LR_SHARED)
 	wcls := WndClassEx{
-		CbSize: uint32(unsafe.Sizeof(WndClassEx{})),
-
+		CbSize:    uint32(unsafe.Sizeof(WndClassEx{})),
 		HInstance: hInst,
 	}
 	if child {
-		wcls.Style = 0
-		wcls.LpszClassName = syscall.StringToUTF16Ptr("GsbChildWindow")
+		wcls.Style = CS_HREDRAW | CS_VREDRAW /*| CS_OWNDC*/
+		wcls.LpszClassName = syscall.StringToUTF16Ptr("Static")
 		wcls.LpfnWndProc = syscall.NewCallback(windowChildProc)
 		wcls.HIcon = 0
+		resourceChild.handle = hInst
+		resourceChild.cursor = c
+		resourceChild.class = "Static"
 	} else {
 		wcls.Style = CS_HREDRAW | CS_VREDRAW | CS_OWNDC
 		wcls.HIcon = icon
 		wcls.LpszClassName = syscall.StringToUTF16Ptr("GsbWindow")
+
 		wcls.LpfnWndProc = syscall.NewCallback(windowProc)
+		_, err := RegisterClassEx(&wcls)
+		if err != nil {
+			return err
+		}
+		resourceMain.handle = hInst
+		resourceMain.cursor = c
+		resourceMain.class = "GsbWindow"
 	}
-	cls, err := RegisterClassEx(&wcls)
-	if err != nil {
-		return err
-	}
-	resources.class = cls
+
 	return nil
 }
 
@@ -122,29 +134,30 @@ const dwExStyle = WS_EX_APPWINDOW | WS_EX_WINDOWEDGE
 func CreateNativeMainWindow(config *Config) error {
 
 	var resErr error
-	resources.once.Do(func() {
+	resourceMain.once.Do(func() {
 		resErr = initResources(false)
 	})
 	if resErr != nil {
 		return resErr
 	}
-	const dwStyle = WS_OVERLAPPED | WS_CAPTION | WS_THICKFRAME | WS_SYSMENU
+	const dwStyle = WS_CAPTION | WS_THICKFRAME | WS_SYSMENU | WS_CLIPSIBLINGS | WS_CLIPCHILDREN
 
 	hwnd, err := CreateWindowEx(
 		dwExStyle,
-		resources.class, //lpClassame
-		config.Title,    // lpWindowName
-		dwStyle|WS_CLIPSIBLINGS|WS_CLIPCHILDREN,            //dwStyle
+		"GsbWindow",                                        //	resourceMain.class,                                 //lpClassame
+		config.Title,                                       // lpWindowName
+		dwStyle,                                            //dwStyle
 		int32(config.Position.X), int32(config.Position.Y), //x, y
 		int32(config.Size.X), int32(config.Size.Y), //w, h
-		0,                //hWndParent
-		0,                // hMenu
-		resources.handle, //hInstance
-		0)                // lpParam
+		0,                   //hWndParent
+		0,                   // hMenu
+		resourceMain.handle, //hInstance
+		0)                   // lpParam
 	if err != nil {
 		return err
 	}
 	w := &Window{
+		Id:        0,
 		Hwnd:      hwnd,
 		Config:    config,
 		Parent:    nil,
@@ -163,15 +176,16 @@ func CreateNativeMainWindow(config *Config) error {
 	// set it here to show the cursor.
 	w.SetCursor(CursorDefault)
 
+	SetWindowText(w.Hwnd, "Server check")
+	ShowWindow(w.Hwnd, SW_SHOWNORMAL)
+
 	chWin, err := CreateChildWindow(w, 10, 10, 80, 40)
 	if err != nil {
-		log.Println(err)
+		panic(err.Error())
 	}
 
 	winMap.Store(chWin.Hwnd, chWin)
 	defer winMap.Delete(chWin.Hwnd)
-
-	ShowWindow(w.Hwnd, SW_SHOWNORMAL)
 
 	msg := new(Msg)
 	for {
@@ -182,6 +196,9 @@ func CreateNativeMainWindow(config *Config) error {
 		case 0:
 			// WM_QUIT received.
 			return nil
+		}
+		if msg.Message == 0x0001 {
+			panic("WM_CREATE")
 		}
 		TranslateMessage(msg)
 		DispatchMessage(msg)
@@ -198,6 +215,46 @@ func coordsFromlParam(lParam uintptr) (int, int) {
 func (w *Window) draw(sync bool) {
 	if w.Config.Size.X == 0 || w.Config.Size.Y == 0 {
 		return
+	}
+
+	if w.Id != 0 {
+
+		SetTextColor(w.Hdc, uint32(0x000000ff))
+		SetBkColor(w.Hdc, uint32(0x00aabbcc))
+
+		// Obtain the window's client rectangle
+		r := GetClientRect(w.Hwnd)
+
+		// THE FIX: by setting the background mode
+		// to transparent, the region is the text itself
+		//SetBkMode(w.Hdc, 2)
+
+		// Bracket begin a path
+		BeginPath(w.Hdc)
+
+		// Send some text out
+		text := []byte{'A', 'B', 'C'}
+		TextOut(w.Hdc, r.Left+100, r.Top+20, &text, 3 /*w.Config.Title*/)
+
+		// Bracket end a path
+		EndPath(w.Hdc)
+	}
+	/*
+		// Derive a region from that path
+		SelectClipPath(hdc, RGN_AND)
+
+		// This generates the same result as SelectClipPath()
+		// SelectClipRgn(hdc, PathToRegion(hdc));
+	*/
+	// Fill the region
+	if w.Id == 0 {
+		r2 := GetClientRect(w.Hwnd)
+		r2.Left += 120
+		r2.Top += 20
+		r2.Bottom -= 20
+		r2.Right -= 20
+
+		FillRect(w.Hdc, &r2, GetStockObject(1)) // 0,5-белый, 1 - серый, 2-темно-серый, 4 - черный
 	}
 	/*
 		dpi := GetWindowDPI(w.Hwnd)
@@ -235,7 +292,7 @@ func (w *Window) update() {
 func (w *Window) SetCursor(cursor Cursor) {
 	c, err := loadCursor(cursor)
 	if err != nil {
-		c = resources.cursor
+		c = resourceMain.cursor
 	}
 	w.Cursor = c
 	SetCursor(w.Cursor) // Win32 API function
@@ -244,7 +301,7 @@ func (w *Window) SetCursor(cursor Cursor) {
 func loadCursor(cursor Cursor) (syscall.Handle, error) {
 	switch cursor {
 	case CursorDefault:
-		return resources.cursor, nil
+		return resourceMain.cursor, nil
 	case CursorNone:
 		return 0, nil
 	default:
