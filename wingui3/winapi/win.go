@@ -60,7 +60,9 @@ type Window struct {
 	Config      *Config
 	BorderSize  image.Point
 	Cursor      syscall.Handle
-	PointerBtns Buttons //Кнопки мыши??
+	PointerBtns Buttons //Кнопки мыши
+	Parent      *Window
+	Childrens   []*Window
 }
 
 // iconID is the ID of the icon in the resource file.
@@ -77,7 +79,7 @@ var resources struct {
 }
 
 // initResources initializes the resources global.
-func initResources() error {
+func initResources(child bool) error {
 	SetProcessDPIAware()
 	hInst, err := GetModuleHandle()
 	if err != nil {
@@ -91,12 +93,17 @@ func initResources() error {
 	resources.cursor = c
 	icon, _ := LoadImage(hInst, iconID, IMAGE_ICON, 0, 0, LR_DEFAULTSIZE|LR_SHARED)
 	wcls := WndClassEx{
-		CbSize:        uint32(unsafe.Sizeof(WndClassEx{})),
-		Style:         CS_HREDRAW | CS_VREDRAW | CS_OWNDC,
-		LpfnWndProc:   syscall.NewCallback(windowProc),
-		HInstance:     hInst,
-		HIcon:         icon,
-		LpszClassName: syscall.StringToUTF16Ptr("GsbWindow"),
+		CbSize:      uint32(unsafe.Sizeof(WndClassEx{})),
+		Style:       CS_HREDRAW | CS_VREDRAW | CS_OWNDC,
+		LpfnWndProc: syscall.NewCallback(windowProc),
+		HInstance:   hInst,
+		HIcon:       icon,
+		//		LpszClassName: syscall.StringToUTF16Ptr("GsbWindow"),
+	}
+	if child {
+		wcls.LpszClassName = syscall.StringToUTF16Ptr("GsbChildWindow")
+	} else {
+		wcls.LpszClassName = syscall.StringToUTF16Ptr("GsbWindow")
 	}
 	cls, err := RegisterClassEx(&wcls)
 	if err != nil {
@@ -113,18 +120,18 @@ func CreateNativeMainWindow(config *Config) error {
 
 	var resErr error
 	resources.once.Do(func() {
-		resErr = initResources()
+		resErr = initResources(false)
 	})
 	if resErr != nil {
 		return resErr
 	}
-	const dwStyle = WS_OVERLAPPEDWINDOW
+	const dwStyle = WS_OVERLAPPED | WS_CAPTION | WS_THICKFRAME | WS_SYSMENU
 
 	hwnd, err := CreateWindowEx(
 		dwExStyle,
-		resources.class,                                    //lpClassame
-		config.Title,                                       // lpWindowName
-		dwStyle,                                            //WS_CLIPSIBLINGS|WS_CLIPCHILDREN, //dwStyle
+		resources.class, //lpClassame
+		config.Title,    // lpWindowName
+		dwStyle|WS_CLIPSIBLINGS|WS_CLIPCHILDREN,            //dwStyle
 		int32(config.Position.X), int32(config.Position.Y), //x, y
 		int32(config.Size.X), int32(config.Size.Y), //w, h
 		0,                //hWndParent
@@ -135,9 +142,16 @@ func CreateNativeMainWindow(config *Config) error {
 		return err
 	}
 	w := &Window{
-		Hwnd:   hwnd,
-		Config: config,
+		Hwnd:      hwnd,
+		Config:    config,
+		Parent:    nil,
+		Childrens: make([]*Window, 0),
 	}
+	w.Hdc, err = GetDC(hwnd)
+	if err != nil {
+		return err
+	}
+
 	winMap.Store(w.Hwnd, w)
 	defer winMap.Delete(w.Hwnd)
 	SetForegroundWindow(w.Hwnd)
@@ -145,12 +159,14 @@ func CreateNativeMainWindow(config *Config) error {
 	// Since the window class for the cursor is null,
 	// set it here to show the cursor.
 	w.SetCursor(CursorDefault)
+
+	_, err = CreateChildWindow(w, 10, 10, 80, 40)
+	if err != nil {
+		log.Println(err)
+	}
+
 	ShowWindow(w.Hwnd, SW_SHOWNORMAL)
 
-	w.Hdc, err = GetDC(hwnd)
-	if err != nil {
-		return err
-	}
 	msg := new(Msg)
 	for {
 		ret := GetMessage(msg, 0, 0, 0)

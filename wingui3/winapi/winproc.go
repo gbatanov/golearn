@@ -19,6 +19,9 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintptr
 	w := win.(*Window)
 
 	switch msg {
+	case WM_CREATE:
+
+		return DefWindowProc(hwnd, msg, wParam, lParam)
 	case WM_UNICHAR:
 		if wParam == UNICODE_NOCHAR {
 			// Tell the system that we accept WM_UNICHAR messages.
