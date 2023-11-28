@@ -93,17 +93,20 @@ func initResources(child bool) error {
 	resources.cursor = c
 	icon, _ := LoadImage(hInst, iconID, IMAGE_ICON, 0, 0, LR_DEFAULTSIZE|LR_SHARED)
 	wcls := WndClassEx{
-		CbSize:      uint32(unsafe.Sizeof(WndClassEx{})),
-		Style:       CS_HREDRAW | CS_VREDRAW | CS_OWNDC,
-		LpfnWndProc: syscall.NewCallback(windowProc),
-		HInstance:   hInst,
-		HIcon:       icon,
-		//		LpszClassName: syscall.StringToUTF16Ptr("GsbWindow"),
+		CbSize: uint32(unsafe.Sizeof(WndClassEx{})),
+
+		HInstance: hInst,
 	}
 	if child {
+		wcls.Style = 0
 		wcls.LpszClassName = syscall.StringToUTF16Ptr("GsbChildWindow")
+		wcls.LpfnWndProc = syscall.NewCallback(windowChildProc)
+		wcls.HIcon = 0
 	} else {
+		wcls.Style = CS_HREDRAW | CS_VREDRAW | CS_OWNDC
+		wcls.HIcon = icon
 		wcls.LpszClassName = syscall.StringToUTF16Ptr("GsbWindow")
+		wcls.LpfnWndProc = syscall.NewCallback(windowProc)
 	}
 	cls, err := RegisterClassEx(&wcls)
 	if err != nil {
@@ -115,7 +118,7 @@ func initResources(child bool) error {
 
 const dwExStyle = WS_EX_APPWINDOW | WS_EX_WINDOWEDGE
 
-// Создание основоного окна программы
+// Создание основного окна программы
 func CreateNativeMainWindow(config *Config) error {
 
 	var resErr error
@@ -160,10 +163,13 @@ func CreateNativeMainWindow(config *Config) error {
 	// set it here to show the cursor.
 	w.SetCursor(CursorDefault)
 
-	_, err = CreateChildWindow(w, 10, 10, 80, 40)
+	chWin, err := CreateChildWindow(w, 10, 10, 80, 40)
 	if err != nil {
 		log.Println(err)
 	}
+
+	winMap.Store(chWin.Hwnd, chWin)
+	defer winMap.Delete(chWin.Hwnd)
 
 	ShowWindow(w.Hwnd, SW_SHOWNORMAL)
 

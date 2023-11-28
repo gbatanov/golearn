@@ -9,7 +9,7 @@ import (
 	syscall "golang.org/x/sys/windows"
 )
 
-// Основной обработчик событий окна
+// Основной обработчик событий главного окна
 func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintptr {
 	win, exists := winMap.Load(hwnd)
 	if !exists {
@@ -17,6 +17,9 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintptr
 	}
 
 	w := win.(*Window)
+	if w.Config.Title != "GsbTest" {
+		return windowChildProc(hwnd, msg, wParam, lParam)
+	}
 
 	switch msg {
 	case WM_CREATE:
@@ -44,25 +47,25 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintptr
 		// Avoid flickering between GPU content and background color.
 		return TRUE
 	case WM_KEYDOWN, WM_KEYUP, WM_SYSKEYDOWN, WM_SYSKEYUP:
-		/*
-			if n, ok := convertKeyCode(wParam); ok {
-				e := Event{
-					Name: n,
-					//				Modifiers: getModifiers(),
-					State: Press,
-				}
-				if msg == WM_KEYUP || msg == WM_SYSKEYUP {
-					e.State = Release
-				}
 
-				//			w.w.Event(e)
+		if n, ok := convertKeyCode(wParam); ok {
+			e := Event{
+				Name:      n,
+				Modifiers: getModifiers(),
+				State:     Press,
+			}
+			if msg == WM_KEYUP || msg == WM_SYSKEYUP {
+				e.State = Release
+			}
 
-				if (wParam == VK_F10) && (msg == WM_SYSKEYDOWN || msg == WM_SYSKEYUP) {
-					// Reserve F10 for ourselves, and don't let it open the system menu. Other Windows programs
-					// such as cmd.exe and graphical debuggers also reserve F10.
-					return 0
-				}
-			}*/
+			w.Config.EventChan <- (e)
+
+			if (wParam == VK_F10) && (msg == WM_SYSKEYDOWN || msg == WM_SYSKEYUP) {
+				// Reserve F10 for ourselves, and don't let it open the system menu. Other Windows programs
+				// such as cmd.exe and graphical debuggers also reserve F10.
+				return 0
+			}
+		}
 	case WM_LBUTTONDOWN:
 		w.pointerButton(ButtonPrimary, true, lParam, getModifiers())
 	case WM_LBUTTONUP:

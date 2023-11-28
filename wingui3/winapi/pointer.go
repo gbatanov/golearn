@@ -33,6 +33,8 @@ type Event struct {
 	// Modifiers is the set of active modifiers when
 	// the mouse button was pressed.
 	Modifiers Modifiers
+	Name      string
+	State     Kind
 }
 
 // PassOp sets the pass-through mode. InputOps added while the pass-through

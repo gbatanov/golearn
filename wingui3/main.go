@@ -9,7 +9,7 @@ import (
 	"github.com/gbatanov/golearn/wingui3/winapi"
 )
 
-const VERSION = "v0.0.6"
+const VERSION = "v0.0.7"
 
 var mouseX, mouseY int = 0, 0
 var startMove bool = false
