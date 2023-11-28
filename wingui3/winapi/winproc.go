@@ -2,7 +2,6 @@ package winapi
 
 import (
 	"image"
-	"log"
 	"unicode"
 	"unsafe"
 
@@ -20,9 +19,9 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintptr
 
 	switch msg {
 	case WM_NCCREATE:
-		log.Printf("Main 0x%04x", msg)
+		panic("Main WM_NCCREATE")
 	case WM_CREATE:
-		log.Printf("Main 0x%04x", msg)
+		panic("Main WM_CREATE")
 
 	case WM_UNICHAR:
 		if wParam == UNICODE_NOCHAR {

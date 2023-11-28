@@ -722,10 +722,10 @@ func EndPath(hdc syscall.Handle) {
 	log.Println("EndPath", r1, r2, r3)
 }
 
-func TextOut(hdc syscall.Handle, x int32, y int32, text *[]byte, len int32) {
-	//	_text := syscall.StringToUTF16Ptr(text)
+func TextOut(hdc syscall.Handle, x int32, y int32, text *string, len int32) {
+	_text := syscall.StringToUTF16Ptr(*text)
 	//	length := len(*text)
-	r1, r2, r3 := _TextOut.Call(uintptr(hdc), uintptr(x), uintptr(y), uintptr(unsafe.Pointer(text)), uintptr(len))
+	r1, r2, r3 := _TextOut.Call(uintptr(hdc), uintptr(x), uintptr(y), uintptr(unsafe.Pointer(_text)), uintptr(len))
 	log.Println("TextOut", r1, r2, r3)
 }
 

@@ -170,13 +170,13 @@ func CreateNativeMainWindow(config *Config) error {
 
 	winMap.Store(w.Hwnd, w)
 	defer winMap.Delete(w.Hwnd)
+
 	SetForegroundWindow(w.Hwnd)
 	SetFocus(w.Hwnd)
-	// Since the window class for the cursor is null,
-	// set it here to show the cursor.
+
 	w.SetCursor(CursorDefault)
 
-	SetWindowText(w.Hwnd, "Server check")
+	//	SetWindowText(w.Hwnd, "Server check")
 	ShowWindow(w.Hwnd, SW_SHOWNORMAL)
 
 	chWin, err := CreateChildWindow(w, 10, 10, 80, 40)
@@ -197,13 +197,11 @@ func CreateNativeMainWindow(config *Config) error {
 			// WM_QUIT received.
 			return nil
 		}
-		if msg.Message == 0x0001 {
-			panic("WM_CREATE")
-		}
+
 		TranslateMessage(msg)
 		DispatchMessage(msg)
 	}
-	return nil
+
 }
 
 func coordsFromlParam(lParam uintptr) (int, int) {
@@ -216,36 +214,32 @@ func (w *Window) draw(sync bool) {
 	if w.Config.Size.X == 0 || w.Config.Size.Y == 0 {
 		return
 	}
-
-	if w.Id != 0 {
-
-		SetTextColor(w.Hdc, uint32(0x000000ff))
-		SetBkColor(w.Hdc, uint32(0x00aabbcc))
-
-		// Obtain the window's client rectangle
-		r := GetClientRect(w.Hwnd)
-
-		// THE FIX: by setting the background mode
-		// to transparent, the region is the text itself
-		//SetBkMode(w.Hdc, 2)
-
-		// Bracket begin a path
-		BeginPath(w.Hdc)
-
-		// Send some text out
-		text := []byte{'A', 'B', 'C'}
-		TextOut(w.Hdc, r.Left+100, r.Top+20, &text, 3 /*w.Config.Title*/)
-
-		// Bracket end a path
-		EndPath(w.Hdc)
-	}
 	/*
-		// Derive a region from that path
-		SelectClipPath(hdc, RGN_AND)
+		// Не заработало (
+		   if w.Id != 0 {
 
-		// This generates the same result as SelectClipPath()
-		// SelectClipRgn(hdc, PathToRegion(hdc));
+		   	SetTextColor(w.Hdc, uint32(0x000000ff))
+		   	SetBkColor(w.Hdc, uint32(0x00aabbcc))
+
+		   	// Obtain the window's client rectangle
+		   	r := GetClientRect(w.Hwnd)
+
+		   	// THE FIX: by setting the background mode
+		   	// to transparent, the region is the text itself
+		   	//	SetBkMode(w.Hdc, 2)
+
+		   	// Bracket begin a path
+		   	BeginPath(w.Hdc)
+
+		   	// Send some text out
+		   	text := "ABC"
+		   	TextOut(w.Hdc, r.Left, r.Top, &text, int32(len(text)) )
+
+		   	// Bracket end a path
+		   	EndPath(w.Hdc)
+		   	}
 	*/
+
 	// Fill the region
 	if w.Id == 0 {
 		r2 := GetClientRect(w.Hwnd)

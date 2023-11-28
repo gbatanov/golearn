@@ -2,7 +2,6 @@ package winapi
 
 import (
 	"image"
-	"log"
 
 	syscall "golang.org/x/sys/windows"
 )
@@ -57,10 +56,6 @@ func CreateChildWindow(parent *Window, x, y, width, height int32) (*Window, erro
 	}
 	w.SetCursor(CursorDefault)
 	parent.Childrens = append(parent.Childrens, w)
-	//	ShowWindow(hwnd, SW_SHOWNORMAL)
-	//	SetForegroundWindow(hwnd)
-	//	SetFocus(hwnd)
-	//	EnableWindow(hwnd, int32(1))
 
 	ChildId += 1
 	return w, nil
@@ -71,16 +66,17 @@ func windowChildProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) ui
 	if !exists {
 		return DefWindowProc(hwnd, msg, wParam, lParam)
 	}
+
 	if msg == WM_CREATE {
-		panic("WM_CREATE")
+		panic("Child WM_CREATE")
 	}
 	if msg == WM_NCCREATE {
-		panic("WM_NCCREATE")
+		panic("Child WM_NCCREATE")
 	}
 	if msg == WM_CHILDACTIVATE {
-		panic("WM_CHILDACTIVATE")
+		panic("Child WM_CHILDACTIVATE")
 	}
-	log.Printf("Child 0x%04x", msg)
+	//	log.Printf("Child 0x%04x", msg)
 	return windowProc(hwnd, msg, wParam, lParam)
 
 }

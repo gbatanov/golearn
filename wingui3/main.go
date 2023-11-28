@@ -8,7 +8,7 @@ import (
 	"github.com/gbatanov/golearn/wingui3/winapi"
 )
 
-const VERSION = "v0.0.8"
+const VERSION = "v0.0.9"
 
 var mouseX, mouseY int = 0, 0
 var startMove bool = false
@@ -21,7 +21,7 @@ func main() {
 	config.MaxSize = image.Pt(800, 600)
 	config.MinSize = image.Pt(100, 100)
 	config.Size = image.Pt(320, 120)
-	config.Title = "GsbTest"
+	config.Title = "Server check"
 	config.EventChan = make(chan winapi.Event, 128)
 
 	go func() {
