@@ -2,10 +2,9 @@ package winapi
 
 import (
 	"errors"
-	"fmt"
 	"image"
+	"log"
 	"sync"
-	"unicode"
 	"unsafe"
 
 	syscall "golang.org/x/sys/windows"
@@ -42,6 +41,7 @@ const (
 )
 
 type Config struct {
+	Position  image.Point
 	Size      image.Point
 	MinSize   image.Point
 	MaxSize   image.Point
@@ -57,10 +57,10 @@ type Window struct {
 	Hdc         syscall.Handle
 	Focused     bool
 	Stage       Stage
-	Config      Config
+	Config      *Config
 	BorderSize  image.Point
 	Cursor      syscall.Handle
-	PointerBtns Buttons
+	PointerBtns Buttons //Кнопки мыши??
 }
 
 // iconID is the ID of the icon in the resource file.
@@ -109,7 +109,7 @@ func initResources() error {
 const dwExStyle = WS_EX_APPWINDOW | WS_EX_WINDOWEDGE
 
 // Создание основоного окна программы
-func CreateNativeMainWindow(config Config) error {
+func CreateNativeMainWindow(config *Config) error {
 
 	var resErr error
 	resources.once.Do(func() {
@@ -122,10 +122,10 @@ func CreateNativeMainWindow(config Config) error {
 
 	hwnd, err := CreateWindowEx(
 		dwExStyle,
-		resources.class,              //lpClassame
-		config.Title,                 // lpWindowName
-		dwStyle,                      //WS_CLIPSIBLINGS|WS_CLIPCHILDREN, //dwStyle
-		CW_USEDEFAULT, CW_USEDEFAULT, //x, y
+		resources.class,                                    //lpClassame
+		config.Title,                                       // lpWindowName
+		dwStyle,                                            //WS_CLIPSIBLINGS|WS_CLIPCHILDREN, //dwStyle
+		int32(config.Position.X), int32(config.Position.Y), //x, y
 		int32(config.Size.X), int32(config.Size.Y), //w, h
 		0,                //hWndParent
 		0,                // hMenu
@@ -167,398 +167,10 @@ func CreateNativeMainWindow(config Config) error {
 	return nil
 }
 
-// Основной обработчик чобытий окна
-func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintptr {
-	win, exists := winMap.Load(hwnd)
-	if !exists {
-		return DefWindowProc(hwnd, msg, wParam, lParam)
-	}
-
-	w := win.(*Window)
-
-	switch msg {
-	case WM_UNICHAR:
-		if wParam == UNICODE_NOCHAR {
-			// Tell the system that we accept WM_UNICHAR messages.
-			return TRUE
-		}
-		fallthrough
-	case WM_CHAR:
-		if r := rune(wParam); unicode.IsPrint(r) {
-			//			w.w.EditorInsert(string(r))
-		}
-		// The message is processed.
-		return TRUE
-	case WM_DPICHANGED:
-		// Let Windows know we're prepared for runtime DPI changes.
-		return TRUE
-	case WM_ERASEBKGND:
-		// Avoid flickering between GPU content and background color.
-		return TRUE
-	case WM_KEYDOWN, WM_KEYUP, WM_SYSKEYDOWN, WM_SYSKEYUP:
-		/*
-			if n, ok := convertKeyCode(wParam); ok {
-				e := Event{
-					Name: n,
-					//				Modifiers: getModifiers(),
-					State: Press,
-				}
-				if msg == WM_KEYUP || msg == WM_SYSKEYUP {
-					e.State = Release
-				}
-
-				//			w.w.Event(e)
-
-				if (wParam == VK_F10) && (msg == WM_SYSKEYDOWN || msg == WM_SYSKEYUP) {
-					// Reserve F10 for ourselves, and don't let it open the system menu. Other Windows programs
-					// such as cmd.exe and graphical debuggers also reserve F10.
-					return 0
-				}
-			}*/
-	case WM_LBUTTONDOWN:
-		w.pointerButton(ButtonPrimary, true, lParam, getModifiers())
-	case WM_LBUTTONUP:
-		//		w.pointerButton( ButtonPrimary, false, lParam, getModifiers())
-	case WM_RBUTTONDOWN:
-		//		w.pointerButton( ButtonSecondary, true, lParam, getModifiers())
-	case WM_RBUTTONUP:
-		//		w.pointerButton( ButtonSecondary, false, lParam, getModifiers())
-	case WM_MBUTTONDOWN:
-		//		w.pointerButton( ButtonTertiary, true, lParam, getModifiers())
-	case WM_MBUTTONUP:
-		//		w.pointerButton( ButtonTertiary, false, lParam, getModifiers())
-	case WM_CANCELMODE:
-		//		w.w.Event( Event{
-		//			Kind:  Cancel,
-		//		})
-	case WM_SETFOCUS:
-		w.Focused = true
-		//		w.w.Event(FocusEvent{Focus: true})
-	case WM_KILLFOCUS:
-		w.Focused = false
-		//		w.w.Event(FocusEvent{Focus: false})
-	case WM_NCACTIVATE:
-		if w.Stage >= StageInactive {
-			if wParam == TRUE {
-				w.Stage = StageRunning
-			} else {
-				w.Stage = StageInactive
-			}
-		}
-		/*
-			case WM_NCHITTEST:
-				if w.Config.Decorated {
-					// Let the system handle it.
-					break
-				}
-				//		x, y := coordsFromlParam(lParam)
-				x := 10.0
-				y := 20.0
-				np := Point{X: int32(x), Y: int32(y)}
-				ScreenToClient(w.Hwnd, &np)
-				//		return w.hitTest(int(np.X), int(np.Y))
-		*/
-	case WM_MOUSEMOVE:
-
-		x, y := coordsFromlParam(lParam)
-
-		fmt.Println(x, y)
-
-		p := image.Point{X: x, Y: y}
-
-		w.Config.EventChan <- Event{
-			SWin:      w,
-			Kind:      Move,
-			Source:    Mouse,
-			Position:  p,
-			Buttons:   w.PointerBtns,
-			Time:      GetMessageTime(),
-			Modifiers: getModifiers(),
-		}
-
-	case WM_MOUSEWHEEL:
-		//		w.scrollEvent(wParam, lParam, false, getModifiers())
-	case WM_MOUSEHWHEEL:
-		//		w.scrollEvent(wParam, lParam, true, getModifiers())
-	case WM_DESTROY:
-		//		w.w.Event(ViewEvent{})
-		//		w.w.Event(system.DestroyEvent{})
-		if w.Hdc != 0 {
-			ReleaseDC(w.Hdc)
-			w.Hdc = 0
-		}
-		// The system destroys the HWND for us.
-		w.Hwnd = 0
-		PostQuitMessage(0)
-	case WM_NCCALCSIZE:
-		if w.Config.Decorated {
-			// Let Windows handle decorations.
-			break
-		}
-		// No client areas; we draw decorations ourselves.
-		if wParam != 1 {
-			return 0
-		}
-		// lParam contains an NCCALCSIZE_PARAMS for us to adjust.
-		place := GetWindowPlacement(w.Hwnd)
-		if !place.IsMaximized() {
-			// Nothing do adjust.
-			return 0
-		}
-		// Adjust window position to avoid the extra padding in maximized
-		// state. See https://devblogs.microsoft.com/oldnewthing/20150304-00/?p=44543.
-		// Note that trying to do the adjustment in WM_GETMINMAXINFO is ignored by
-		szp := (*NCCalcSizeParams)(unsafe.Pointer(uintptr(lParam)))
-		mi := GetMonitorInfo(w.Hwnd)
-		szp.Rgrc[0] = mi.WorkArea
-		return 0
-	case WM_PAINT:
-		w.draw(true)
-	case WM_SIZE:
-		w.update()
-		switch wParam {
-		case SIZE_MINIMIZED:
-			w.Config.Mode = Minimized
-			//			w.setStage(system.StagePaused)
-		case SIZE_MAXIMIZED:
-			w.Config.Mode = Maximized
-			//			w.setStage(system.StageRunning)
-		case SIZE_RESTORED:
-			if w.Config.Mode != Fullscreen {
-				w.Config.Mode = Windowed
-			}
-			//			w.setStage(system.StageRunning)
-		}
-	case WM_GETMINMAXINFO:
-		mm := (*MinMaxInfo)(unsafe.Pointer(uintptr(lParam)))
-		var bw, bh int32
-		if w.Config.Decorated {
-			r := GetWindowRect(w.Hwnd)
-			cr := GetClientRect(w.Hwnd)
-			bw = r.Right - r.Left - (cr.Right - cr.Left)
-			bh = r.Bottom - r.Top - (cr.Bottom - cr.Top)
-		}
-		if p := w.Config.MinSize; p.X > 0 || p.Y > 0 {
-			mm.PtMinTrackSize = Point{
-				X: int32(p.X) + bw,
-				Y: int32(p.Y) + bh,
-			}
-		}
-		if p := w.Config.MaxSize; p.X > 0 || p.Y > 0 {
-			mm.PtMaxTrackSize = Point{
-				X: int32(p.X) + bw,
-				Y: int32(p.Y) + bh,
-			}
-		}
-		return 0
-	case WM_SETCURSOR:
-		/*
-			w.cursorIn = (lParam & 0xffff) == HTCLIENT
-			if w.cursorIn {
-				SetCursor(w.cursor)
-				return TRUE
-			}
-		*/
-		/*
-			case _WM_WAKEUP:
-			w.w.Event(wakeupEvent{})
-
-					case WM_IME_STARTCOMPOSITION:
-						imc := ImmGetContext(w.hwnd)
-						if imc == 0 {
-							return TRUE
-						}
-						defer ImmReleaseContext(w.hwnd, imc)
-						sel := w.w.EditorState().Selection
-						caret := sel.Transform.Transform(sel.Caret.Pos.Add(f32.Pt(0, sel.Caret.Descent)))
-						icaret := image.Pt(int(caret.X+.5), int(caret.Y+.5))
-						ImmSetCompositionWindow(imc, icaret.X, icaret.Y)
-						ImmSetCandidateWindow(imc, icaret.X, icaret.Y)
-		*/
-		/*
-			case  WM_IME_COMPOSITION:
-				imc :=  ImmGetContext(w.hwnd)
-				if imc == 0 {
-					return  TRUE
-				}
-				defer  ImmReleaseContext(w.hwnd, imc)
-				state := w.w.EditorState()
-				rng := state.compose
-				if rng.Start == -1 {
-					rng = state.Selection.Range
-				}
-				if rng.Start > rng.End {
-					rng.Start, rng.End = rng.End, rng.Start
-				}
-				var replacement string
-				switch {
-				case lParam& GCS_RESULTSTR != 0:
-					replacement =  ImmGetCompositionString(imc,  GCS_RESULTSTR)
-				case lParam& GCS_COMPSTR != 0:
-					replacement =  ImmGetCompositionString(imc,  GCS_COMPSTR)
-				}
-				end := rng.Start + utf8.RuneCountInString(replacement)
-				w.w.EditorReplace(rng, replacement)
-				state = w.w.EditorState()
-				comp := Range{
-					Start: rng.Start,
-					End:   end,
-				}
-				if lParam& GCS_DELTASTART != 0 {
-					start :=  ImmGetCompositionValue(imc,  GCS_DELTASTART)
-					comp.Start = state.RunesIndex(state.UTF16Index(comp.Start) + start)
-				}
-				w.w.SetComposingRegion(comp)
-				pos := end
-				if lParam& GCS_CURSORPOS != 0 {
-					rel :=  ImmGetCompositionValue(imc,  GCS_CURSORPOS)
-					pos = state.RunesIndex(state.UTF16Index(rng.Start) + rel)
-				}
-				w.w.SetEditorSelection(Range{Start: pos, End: pos})
-				return  TRUE
-			case  WM_IME_ENDCOMPOSITION:
-				w.w.SetComposingRegion(Range{Start: -1, End: -1})
-				return  TRUE
-		*/
-	}
-
-	return DefWindowProc(hwnd, msg, wParam, lParam)
-}
-
-func convertKeyCode(code uintptr) (string, bool) {
-	if '0' <= code && code <= '9' || 'A' <= code && code <= 'Z' {
-		return string(rune(code)), true
-	}
-	var r string
-
-	switch code {
-	case VK_ESCAPE:
-		r = NameEscape
-	case VK_LEFT:
-		r = NameLeftArrow
-	case VK_RIGHT:
-		r = NameRightArrow
-	case VK_RETURN:
-		r = NameReturn
-	case VK_UP:
-		r = NameUpArrow
-	case VK_DOWN:
-		r = NameDownArrow
-	case VK_HOME:
-		r = NameHome
-	case VK_END:
-		r = NameEnd
-	case VK_BACK:
-		r = NameDeleteBackward
-	case VK_DELETE:
-		r = NameDeleteForward
-	case VK_PRIOR:
-		r = NamePageUp
-	case VK_NEXT:
-		r = NamePageDown
-	case VK_F1:
-		r = NameF1
-	case VK_F2:
-		r = NameF2
-	case VK_F3:
-		r = NameF3
-	case VK_F4:
-		r = NameF4
-	case VK_F5:
-		r = NameF5
-	case VK_F6:
-		r = NameF6
-	case VK_F7:
-		r = NameF7
-	case VK_F8:
-		r = NameF8
-	case VK_F9:
-		r = NameF9
-	case VK_F10:
-		r = NameF10
-	case VK_F11:
-		r = NameF11
-	case VK_F12:
-		r = NameF12
-	case VK_TAB:
-		r = NameTab
-	case VK_SPACE:
-		r = NameSpace
-	case VK_OEM_1:
-		r = ";"
-	case VK_OEM_PLUS:
-		r = "+"
-	case VK_OEM_COMMA:
-		r = ","
-	case VK_OEM_MINUS:
-		r = "-"
-	case VK_OEM_PERIOD:
-		r = "."
-	case VK_OEM_2:
-		r = "/"
-	case VK_OEM_3:
-		r = "`"
-	case VK_OEM_4:
-		r = "["
-	case VK_OEM_5, VK_OEM_102:
-		r = "\\"
-	case VK_OEM_6:
-		r = "]"
-	case VK_OEM_7:
-		r = "'"
-	case VK_CONTROL:
-		r = NameCtrl
-	case VK_SHIFT:
-		r = NameShift
-	case VK_MENU:
-		r = NameAlt
-	case VK_LWIN, VK_RWIN:
-		r = NameSuper
-	default:
-		return "", false
-	}
-	return r, true
-}
 func coordsFromlParam(lParam uintptr) (int, int) {
 	x := int(int16(lParam & 0xffff))
 	y := int(int16((lParam >> 16) & 0xffff))
 	return x, y
-}
-
-// Modifiers
-type Modifiers uint32
-
-const (
-	// ModCtrl is the ctrl modifier
-	ModCtrl Modifiers = 1 << iota
-	// ModCommand is the command modifier key
-	// found on Apple keyboards.
-	ModCommand
-	// ModShift is the shift modifier
-	ModShift
-	// ModAlt is the alt modifier key, or the option
-	// key on Apple keyboards.
-	ModAlt
-	// ModSuper is the "logo" modifier key, often
-	// represented by a Windows logo.
-	ModSuper
-)
-
-func getModifiers() Modifiers {
-	var kmods Modifiers
-	if GetKeyState(VK_LWIN)&0x1000 != 0 || GetKeyState(VK_RWIN)&0x1000 != 0 {
-		kmods |= ModSuper
-	}
-	if GetKeyState(VK_MENU)&0x1000 != 0 {
-		kmods |= ModAlt
-	}
-	if GetKeyState(VK_CONTROL)&0x1000 != 0 {
-		kmods |= ModCtrl
-	}
-	if GetKeyState(VK_SHIFT)&0x1000 != 0 {
-		kmods |= ModShift
-	}
-	return kmods
 }
 
 func (w *Window) draw(sync bool) {
@@ -598,43 +210,6 @@ func (w *Window) update() {
 
 }
 
-const (
-	// Names for special keys.
-	NameLeftArrow      = "←"
-	NameRightArrow     = "→"
-	NameUpArrow        = "↑"
-	NameDownArrow      = "↓"
-	NameReturn         = "⏎"
-	NameEnter          = "⌤"
-	NameEscape         = "⎋"
-	NameHome           = "⇱"
-	NameEnd            = "⇲"
-	NameDeleteBackward = "⌫"
-	NameDeleteForward  = "⌦"
-	NamePageUp         = "⇞"
-	NamePageDown       = "⇟"
-	NameTab            = "Tab"
-	NameSpace          = "Space"
-	NameCtrl           = "Ctrl"
-	NameShift          = "Shift"
-	NameAlt            = "Alt"
-	NameSuper          = "Super"
-	NameCommand        = "⌘"
-	NameF1             = "F1"
-	NameF2             = "F2"
-	NameF3             = "F3"
-	NameF4             = "F4"
-	NameF5             = "F5"
-	NameF6             = "F6"
-	NameF7             = "F7"
-	NameF8             = "F8"
-	NameF9             = "F9"
-	NameF10            = "F10"
-	NameF11            = "F11"
-	NameF12            = "F12"
-	NameBack           = "Back"
-)
-
 func (w *Window) SetCursor(cursor Cursor) {
 	c, err := loadCursor(cursor)
 	if err != nil {
@@ -655,59 +230,30 @@ func loadCursor(cursor Cursor) (syscall.Handle, error) {
 	}
 }
 
-// windowsCursor contains mapping from  Cursor to an IDC.
-var windowsCursor = [...]uint16{
-	CursorDefault:                  IDC_ARROW,
-	CursorNone:                     0,
-	CursorText:                     IDC_IBEAM,
-	CursorVerticalText:             IDC_IBEAM,
-	CursorPointer:                  IDC_HAND,
-	CursorCrosshair:                IDC_CROSS,
-	CursorAllScroll:                IDC_SIZEALL,
-	CursorColResize:                IDC_SIZEWE,
-	CursorRowResize:                IDC_SIZENS,
-	CursorGrab:                     IDC_SIZEALL,
-	CursorGrabbing:                 IDC_SIZEALL,
-	CursorNotAllowed:               IDC_NO,
-	CursorWait:                     IDC_WAIT,
-	CursorProgress:                 IDC_APPSTARTING,
-	CursorNorthWestResize:          IDC_SIZENWSE,
-	CursorNorthEastResize:          IDC_SIZENESW,
-	CursorSouthWestResize:          IDC_SIZENESW,
-	CursorSouthEastResize:          IDC_SIZENWSE,
-	CursorNorthSouthResize:         IDC_SIZENS,
-	CursorEastWestResize:           IDC_SIZEWE,
-	CursorWestResize:               IDC_SIZEWE,
-	CursorEastResize:               IDC_SIZEWE,
-	CursorNorthResize:              IDC_SIZENS,
-	CursorSouthResize:              IDC_SIZENS,
-	CursorNorthEastSouthWestResize: IDC_SIZENESW,
-	CursorNorthWestSouthEastResize: IDC_SIZENWSE,
-}
-
 func (w *Window) pointerButton(btn Buttons, press bool, lParam uintptr, kmods Modifiers) {
 	if !w.Focused {
 		SetFocus(w.Hwnd)
 	}
-
+	log.Println("pointerButton", btn, press)
 	var kind Kind
 	if press {
 		kind = Press
 		if w.PointerBtns == 0 {
-			SetCapture(w.Hwnd)
+			SetCapture(w.Hwnd) // Захват событий мыши окном
 		}
 		w.PointerBtns |= btn
 	} else {
 		kind = Release
 		w.PointerBtns &^= btn
 		if w.PointerBtns == 0 {
-			ReleaseCapture()
+			ReleaseCapture() // Освобождение событий мыши окном
 		}
 	}
 
 	x, y := coordsFromlParam(lParam)
 	p := image.Point{X: (x), Y: (y)}
 	w.Config.EventChan <- Event{
+		SWin:      w,
 		Kind:      kind,
 		Source:    Mouse,
 		Position:  p,
