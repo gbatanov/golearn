@@ -5,6 +5,8 @@ import (
 	"time"
 )
 
+const VERSION = "v0.0.1"
+
 func main() {
 	var startTimer chan bool = make(chan bool, 1)
 	go func() {
