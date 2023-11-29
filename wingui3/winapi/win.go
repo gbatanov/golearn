@@ -140,7 +140,14 @@ func CreateNativeMainWindow(config *Config) error {
 	if resErr != nil {
 		return resErr
 	}
-	const dwStyle = WS_CAPTION | WS_THICKFRAME | WS_SYSMENU | WS_CLIPSIBLINGS | WS_CLIPCHILDREN
+	// WS_CAPTION включает в себя WS_BORDER
+	var dwStyle uint32 = 0 | WS_CAPTION | WS_SYSMENU //WS_THICKFRAME
+	if config.Decorated {
+		dwStyle = dwStyle | WS_SYSMENU | WS_CLIPSIBLINGS | WS_CLIPCHILDREN
+	} else {
+		//	dwStyle = dwStyle | WS_BORDER //| WS_POPUP
+		//	config.Title = ""
+	}
 
 	hwnd, err := CreateWindowEx(
 		dwExStyle,
@@ -176,7 +183,6 @@ func CreateNativeMainWindow(config *Config) error {
 
 	w.SetCursor(CursorDefault)
 
-	//	SetWindowText(w.Hwnd, "Server check")
 	ShowWindow(w.Hwnd, SW_SHOWNORMAL)
 
 	chWin, err := CreateChildWindow(w, 10, 10, 80, 40)
@@ -214,31 +220,6 @@ func (w *Window) draw(sync bool) {
 	if w.Config.Size.X == 0 || w.Config.Size.Y == 0 {
 		return
 	}
-	/*
-		// Не заработало (
-		   if w.Id != 0 {
-
-		   	SetTextColor(w.Hdc, uint32(0x000000ff))
-		   	SetBkColor(w.Hdc, uint32(0x00aabbcc))
-
-		   	// Obtain the window's client rectangle
-		   	r := GetClientRect(w.Hwnd)
-
-		   	// THE FIX: by setting the background mode
-		   	// to transparent, the region is the text itself
-		   	//	SetBkMode(w.Hdc, 2)
-
-		   	// Bracket begin a path
-		   	BeginPath(w.Hdc)
-
-		   	// Send some text out
-		   	text := "ABC"
-		   	TextOut(w.Hdc, r.Left, r.Top, &text, int32(len(text)) )
-
-		   	// Bracket end a path
-		   	EndPath(w.Hdc)
-		   	}
-	*/
 
 	// Fill the region
 	if w.Id == 0 {
@@ -250,18 +231,7 @@ func (w *Window) draw(sync bool) {
 
 		FillRect(w.Hdc, &r2, GetStockObject(1)) // 0,5-белый, 1 - серый, 2-темно-серый, 4 - черный
 	}
-	/*
-		dpi := GetWindowDPI(w.Hwnd)
-		cfg := configForDPI(dpi)
-		w.w.Event(frameEvent{
-			FrameEvent: system.FrameEvent{
-				Now:    time.Now(),
-				Size:   w.config.Size,
-				Metric: cfg,
-			},
-			Sync: sync,
-		})
-	*/
+
 }
 
 // update() handles changes done by the user, and updates the configuration.

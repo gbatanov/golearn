@@ -81,11 +81,51 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintptr
 		//			Kind:  Cancel,
 		//		})
 	case WM_SETFOCUS:
+		// Это щелчок в окне
 		w.Focused = true
-		//		w.w.Event(FocusEvent{Focus: true})
+		x, y := coordsFromlParam(lParam)
+		w.Config.EventChan <- Event{
+			SWin:      w,
+			Kind:      Enter,
+			Source:    Mouse,
+			Position:  image.Point{X: x, Y: y},
+			Buttons:   w.PointerBtns,
+			Time:      GetMessageTime(),
+			Modifiers: getModifiers(),
+		}
 	case WM_KILLFOCUS:
+		// Щелчок вне нашего окна
 		w.Focused = false
-		//		w.w.Event(FocusEvent{Focus: false})
+		w.Config.EventChan <- Event{
+			SWin:      w,
+			Kind:      Leave,
+			Source:    Mouse,
+			Position:  image.Point{X: -1, Y: -1},
+			Buttons:   w.PointerBtns,
+			Time:      GetMessageTime(),
+			Modifiers: getModifiers(),
+		}
+
+	case WM_MOUSEMOVE:
+		// Это событие будет, даже если наше окно не в фокусе
+		// и может быть даже частично перекрыто другим окном
+		x, y := coordsFromlParam(lParam)
+		p := image.Point{X: x, Y: y}
+
+		w.Config.EventChan <- Event{
+			SWin:      w,
+			Kind:      Move,
+			Source:    Mouse,
+			Position:  p,
+			Buttons:   w.PointerBtns,
+			Time:      GetMessageTime(),
+			Modifiers: getModifiers(),
+		}
+
+	case WM_MOUSEWHEEL:
+		//		w.scrollEvent(wParam, lParam, false, getModifiers())
+	case WM_MOUSEHWHEEL:
+		//		w.scrollEvent(wParam, lParam, true, getModifiers())
 	case WM_NCACTIVATE:
 		if w.Stage >= StageInactive {
 			if wParam == TRUE {
@@ -106,28 +146,6 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintptr
 		ScreenToClient(w.Hwnd, &np)
 		return w.hitTest(int(np.X), int(np.Y))
 
-	case WM_MOUSEMOVE:
-
-		x, y := coordsFromlParam(lParam)
-
-		//		fmt.Println(x, y)
-
-		p := image.Point{X: x, Y: y}
-
-		w.Config.EventChan <- Event{
-			SWin:      w,
-			Kind:      Move,
-			Source:    Mouse,
-			Position:  p,
-			Buttons:   w.PointerBtns,
-			Time:      GetMessageTime(),
-			Modifiers: getModifiers(),
-		}
-
-	case WM_MOUSEWHEEL:
-		//		w.scrollEvent(wParam, lParam, false, getModifiers())
-	case WM_MOUSEHWHEEL:
-		//		w.scrollEvent(wParam, lParam, true, getModifiers())
 	case WM_DESTROY:
 		//		w.w.Event(ViewEvent{})
 		//		w.w.Event(system.DestroyEvent{})
@@ -168,15 +186,15 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintptr
 		switch wParam {
 		case SIZE_MINIMIZED:
 			w.Config.Mode = Minimized
-			//			w.setStage(system.StagePaused)
+			w.Stage = StagePaused
 		case SIZE_MAXIMIZED:
 			w.Config.Mode = Maximized
-			//			w.setStage(system.StageRunning)
+			w.Stage = StageRunning
 		case SIZE_RESTORED:
 			if w.Config.Mode != Fullscreen {
 				w.Config.Mode = Windowed
 			}
-			//			w.setStage(system.StageRunning)
+			w.Stage = StageRunning
 		}
 	case WM_GETMINMAXINFO:
 		mm := (*MinMaxInfo)(unsafe.Pointer(uintptr(lParam)))
@@ -207,68 +225,6 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintptr
 			SetCursor(w.Cursor)
 			return TRUE
 		}
-
-		/*
-			case _WM_WAKEUP:
-			w.w.Event(wakeupEvent{})
-
-					case WM_IME_STARTCOMPOSITION:
-						imc := ImmGetContext(w.hwnd)
-						if imc == 0 {
-							return TRUE
-						}
-						defer ImmReleaseContext(w.hwnd, imc)
-						sel := w.w.EditorState().Selection
-						caret := sel.Transform.Transform(sel.Caret.Pos.Add(f32.Pt(0, sel.Caret.Descent)))
-						icaret := image.Pt(int(caret.X+.5), int(caret.Y+.5))
-						ImmSetCompositionWindow(imc, icaret.X, icaret.Y)
-						ImmSetCandidateWindow(imc, icaret.X, icaret.Y)
-		*/
-		/*
-			case  WM_IME_COMPOSITION:
-				imc :=  ImmGetContext(w.hwnd)
-				if imc == 0 {
-					return  TRUE
-				}
-				defer  ImmReleaseContext(w.hwnd, imc)
-				state := w.w.EditorState()
-				rng := state.compose
-				if rng.Start == -1 {
-					rng = state.Selection.Range
-				}
-				if rng.Start > rng.End {
-					rng.Start, rng.End = rng.End, rng.Start
-				}
-				var replacement string
-				switch {
-				case lParam& GCS_RESULTSTR != 0:
-					replacement =  ImmGetCompositionString(imc,  GCS_RESULTSTR)
-				case lParam& GCS_COMPSTR != 0:
-					replacement =  ImmGetCompositionString(imc,  GCS_COMPSTR)
-				}
-				end := rng.Start + utf8.RuneCountInString(replacement)
-				w.w.EditorReplace(rng, replacement)
-				state = w.w.EditorState()
-				comp := Range{
-					Start: rng.Start,
-					End:   end,
-				}
-				if lParam& GCS_DELTASTART != 0 {
-					start :=  ImmGetCompositionValue(imc,  GCS_DELTASTART)
-					comp.Start = state.RunesIndex(state.UTF16Index(comp.Start) + start)
-				}
-				w.w.SetComposingRegion(comp)
-				pos := end
-				if lParam& GCS_CURSORPOS != 0 {
-					rel :=  ImmGetCompositionValue(imc,  GCS_CURSORPOS)
-					pos = state.RunesIndex(state.UTF16Index(rng.Start) + rel)
-				}
-				w.w.SetEditorSelection(Range{Start: pos, End: pos})
-				return  TRUE
-			case  WM_IME_ENDCOMPOSITION:
-				w.w.SetComposingRegion(Range{Start: -1, End: -1})
-				return  TRUE
-		*/
 	}
 
 	return DefWindowProc(hwnd, msg, wParam, lParam)

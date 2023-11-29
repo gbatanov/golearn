@@ -61,6 +61,7 @@ func CreateChildWindow(parent *Window, x, y, width, height int32) (*Window, erro
 	return w, nil
 }
 
+// Обработку событий в дочерних окнах перенаправляем в основное
 func windowChildProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintptr {
 	_, exists := winMap.Load(hwnd)
 	if !exists {
