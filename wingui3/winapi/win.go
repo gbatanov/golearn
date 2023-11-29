@@ -1,7 +1,6 @@
 package winapi
 
 import (
-	"errors"
 	"image"
 	"sync"
 	"unsafe"
@@ -24,7 +23,7 @@ const (
 )
 
 // winMap maps win32 HWNDs to *
-var winMap sync.Map
+var WinMap sync.Map
 
 type WindowMode uint8
 
@@ -49,6 +48,8 @@ type Config struct {
 	Title      string
 	EventChan  chan Event
 	BorderSize image.Point
+	TextColor  uint32
+	BgColor    uint32
 }
 
 type Window struct {
@@ -62,7 +63,7 @@ type Window struct {
 	Cursor      syscall.Handle
 	PointerBtns Buttons //Кнопки мыши
 	Parent      *Window
-	Childrens   []*Window
+	Childrens   map[int]*Window
 	// cursorIn tracks whether the cursor was inside the window according
 	// to the most recent WM_SETCURSOR.
 	CursorIn bool
@@ -119,14 +120,14 @@ func initResources(child bool) error {
 const dwExStyle = WS_EX_APPWINDOW | WS_EX_WINDOWEDGE
 
 // Создание основного окна программы
-func CreateNativeMainWindow(config *Config) error {
+func CreateNativeMainWindow(config *Config) (*Window, error) {
 
 	var resErr error
 	resources.once.Do(func() {
 		resErr = initResources(false)
 	})
 	if resErr != nil {
-		return resErr
+		return nil, resErr
 	}
 	// WS_CAPTION включает в себя WS_BORDER
 	var dwStyle uint32 = 0 | WS_CAPTION | WS_SYSMENU //WS_THICKFRAME
@@ -146,7 +147,7 @@ func CreateNativeMainWindow(config *Config) error {
 		resources.handle, //hInstance
 		0)                // lpParam
 	if err != nil {
-		return err
+		return nil, err
 	}
 	w := &Window{
 		Id:        0,
@@ -154,52 +155,18 @@ func CreateNativeMainWindow(config *Config) error {
 		HInst:     resources.handle,
 		Config:    config,
 		Parent:    nil,
-		Childrens: make([]*Window, 0),
+		Childrens: make(map[int]*Window, 0),
 	}
 	w.Hdc, err = GetDC(hwnd)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	winMap.Store(w.Hwnd, w)
-	defer winMap.Delete(w.Hwnd)
-
-	childConfig := &Config{
-		Title:      "Child",
-		EventChan:  w.Config.EventChan,
-		Size:       image.Pt(int(w.Config.Size.X-35), int(40)),
-		MinSize:    w.Config.MinSize,
-		MaxSize:    w.Config.MaxSize,
-		Position:   image.Pt(int(10), int(10)),
-		Mode:       Windowed,
-		BorderSize: image.Pt(0, 0),
-	}
-	chWin, err := CreateChildWindow(w, childConfig)
-	if err != nil {
-		panic(err.Error())
-	}
-
-	winMap.Store(chWin.Hwnd, chWin)
-	defer winMap.Delete(chWin.Hwnd)
+	WinMap.Store(w.Hwnd, w)
 
 	SetForegroundWindow(w.Hwnd)
 	SetFocus(w.Hwnd)
 	w.SetCursor(CursorDefault)
 	ShowWindow(w.Hwnd, SW_SHOWNORMAL)
-
-	msg := new(Msg)
-	for {
-		ret := GetMessage(msg, 0, 0, 0)
-		switch ret {
-		case -1:
-			return errors.New("GetMessage failed")
-		case 0:
-			// WM_QUIT received.
-			return nil
-		}
-
-		TranslateMessage(msg)
-		DispatchMessage(msg)
-	}
-
+	return w, nil
 }

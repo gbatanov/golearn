@@ -11,7 +11,7 @@ import (
 
 // Основной обработчик событий главного окна
 func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintptr {
-	win, exists := winMap.Load(hwnd)
+	win, exists := WinMap.Load(hwnd)
 	if !exists {
 		return DefWindowProc(hwnd, msg, wParam, lParam)
 	}
@@ -30,9 +30,6 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintptr
 			return TRUE
 		}
 		fallthrough
-	//	Оператор fallthrough используется в предложении case switch.
-	// Он должен использоваться в конце предложения case.
-	// Он используется для выполнения следующего предложения case без проверки выражения.
 	case WM_CHAR:
 		if r := rune(wParam); unicode.IsPrint(r) {
 			//			w.w.EditorInsert(string(r))
@@ -227,6 +224,20 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintptr
 			SetCursor(w.Cursor)
 			return TRUE
 		}
+
+		// Установка параметров текста для статических элементов окна
+	case WM_CTLCOLORSTATIC:
+
+		wc := w.Childrens[1]
+		log.Println(wc.Hdc, syscall.Handle(wParam))
+
+		SetTextColor(syscall.Handle(wParam), wc.Config.TextColor)   // цвет самого теста
+		SetBkColor(syscall.Handle(wParam), wc.Config.BgColor)       // цвет подложки текста
+		hbrBkgnd, err := CreateSolidBrush(int32(wc.Config.BgColor)) // цвет заливки окна
+		if err == nil {
+			return uintptr(hbrBkgnd)
+		}
+
 	}
 
 	return DefWindowProc(hwnd, msg, wParam, lParam)
@@ -277,20 +288,18 @@ func (w *Window) hitTest(x, y int) uintptr {
 	return HTCLIENT
 }
 
+// Перерисовка окна
 func (w *Window) draw(sync bool) {
 	if w.Config.Size.X == 0 || w.Config.Size.Y == 0 {
 		return
 	}
 
 	r1 := GetClientRect(w.Hwnd)
-
+	hbrBkgnd, _ := CreateSolidBrush(int32(w.Config.BgColor))
 	// Fill the region Main window
-	FillRect(w.Hdc, &r1, GetStockObject(0)) // 0,5-белый, 1 - серый, 2-темно-серый, 4 - черный
+	FillRect(w.Hdc, &r1, hbrBkgnd) // GetStockObject(0) 0,5-белый, 1 - серый, 2-темно-серый, 4 - черный
 
-	for _, w2 := range w.Childrens {
-		log.Println("Draw child")
-		r2 := GetClientRect(w2.Hwnd)
-		FillRect(w2.Hdc, &r2, GetStockObject(2))
+	for _, w2 := range w.Childrens { // Ключом будет ChildId
 		SetWindowText(w2.Hwnd, w2.Config.Title)
 	}
 

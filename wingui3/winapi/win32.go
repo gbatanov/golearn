@@ -280,6 +280,7 @@ const (
 	WM_IME_ENDCOMPOSITION   = 0x010E
 	WM_IME_COMPOSITION      = 0x010F
 	WM_TIMER                = 0x0113
+	WM_CTLCOLORSTATIC       = 0x0138
 	WM_MOUSEMOVE            = 0x0200
 	WM_LBUTTONDOWN          = 0x0201
 	WM_LBUTTONUP            = 0x0202
@@ -409,15 +410,16 @@ var (
 	shcore            = syscall.NewLazySystemDLL("shcore")
 	_GetDpiForMonitor = shcore.NewProc("GetDpiForMonitor")
 
-	gdi32           = syscall.NewLazySystemDLL("gdi32")
-	_GetDeviceCaps  = gdi32.NewProc("GetDeviceCaps")
-	_SetBkColor     = gdi32.NewProc("SetBkColor")
-	_SetBkMode      = gdi32.NewProc("SetBkMode")
-	_BeginPath      = gdi32.NewProc("BeginPath")
-	_EndPath        = gdi32.NewProc("EndPath")
-	_TextOut        = gdi32.NewProc("TextOutW")
-	_SetTextColor   = gdi32.NewProc("SetTextColor")
-	_GetStockObject = gdi32.NewProc("GetStockObject")
+	gdi32             = syscall.NewLazySystemDLL("gdi32")
+	_GetDeviceCaps    = gdi32.NewProc("GetDeviceCaps")
+	_SetBkColor       = gdi32.NewProc("SetBkColor")
+	_SetBkMode        = gdi32.NewProc("SetBkMode")
+	_BeginPath        = gdi32.NewProc("BeginPath")
+	_EndPath          = gdi32.NewProc("EndPath")
+	_TextOut          = gdi32.NewProc("TextOutW")
+	_SetTextColor     = gdi32.NewProc("SetTextColor")
+	_GetStockObject   = gdi32.NewProc("GetStockObject")
+	_CreateSolidBrush = gdi32.NewProc("CreateSolidBrush")
 
 	imm32                    = syscall.NewLazySystemDLL("imm32")
 	_ImmGetContext           = imm32.NewProc("ImmGetContext")
@@ -525,6 +527,13 @@ func GetDC(hwnd syscall.Handle) (syscall.Handle, error) {
 	return syscall.Handle(hdc), nil
 }
 
+func CreateSolidBrush(color int32) (syscall.Handle, error) {
+	hbr, _, err := _CreateSolidBrush.Call(uintptr(color))
+	if hbr == 0 {
+		return 0, fmt.Errorf("CreateSolidBrush failed: %v", err)
+	}
+	return syscall.Handle(hbr), nil
+}
 func GetModuleHandle() (syscall.Handle, error) {
 	h, _, err := _GetModuleHandleW.Call(uintptr(0))
 	if h == 0 {
