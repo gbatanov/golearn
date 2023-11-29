@@ -18,7 +18,7 @@ func CreateChildWindow(parent *Window, config *Config, class string) (*Window, e
 	hwnd, err := CreateWindowEx(
 		0,
 		class,                                              // resourceChild.class, //lpClassName
-		"Child",                                            // lpWindowName
+		config.Title,                                       // lpWindowName
 		dwStyle,                                            //dwStyle
 		int32(config.Position.X), int32(config.Position.Y), //x, y
 		int32(config.Size.X), int32(config.Size.Y), //w, h

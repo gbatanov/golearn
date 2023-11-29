@@ -225,19 +225,19 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintptr
 			return TRUE
 		}
 
-		// Установка параметров текста для статических элементов окна
-	case WM_CTLCOLORSTATIC:
+		/*	// Установка параметров текста для статических элементов окна
+			case WM_CTLCOLORSTATIC:
 
-		wc := w.Childrens[1]
-		log.Println(wc.Hdc, syscall.Handle(wParam))
+				wc := w.Childrens[1]
+				log.Println(wc.Hdc, syscall.Handle(wParam))
 
-		SetTextColor(syscall.Handle(wParam), wc.Config.TextColor)   // цвет самого теста
-		SetBkColor(syscall.Handle(wParam), wc.Config.BgColor)       // цвет подложки текста
-		hbrBkgnd, err := CreateSolidBrush(int32(wc.Config.BgColor)) // цвет заливки окна
-		if err == nil {
-			return uintptr(hbrBkgnd)
-		}
-
+				SetTextColor(syscall.Handle(wParam), wc.Config.TextColor)   // цвет самого теста
+				SetBkColor(syscall.Handle(wParam), wc.Config.BgColor)       // цвет подложки текста
+				hbrBkgnd, err := CreateSolidBrush(int32(wc.Config.BgColor)) // цвет заливки окна
+				if err == nil {
+					return uintptr(hbrBkgnd)
+				}
+		*/
 	}
 
 	return DefWindowProc(hwnd, msg, wParam, lParam)
@@ -300,9 +300,23 @@ func (w *Window) draw(sync bool) {
 	FillRect(w.Hdc, &r1, hbrBkgnd) // GetStockObject(0) 0,5-белый, 1 - серый, 2-темно-серый, 4 - черный
 
 	for _, w2 := range w.Childrens { // Ключом будет ChildId
-		SetWindowText(w2.Hwnd, w2.Config.Title)
-	}
+		var ps PAINTSTRUCT = PAINTSTRUCT{}
+		BeginPaint(w2.Hwnd, &ps)
+		hFont := CreateFont(24, 12, 0, 0, 0,
+			0, 0, 0, 0,
+			0, 0, 0, 0,
+			syscall.StringToUTF16Ptr("Tahoma"))
+		oldFont := SelectObject(w2.Hdc, hFont)
+		SetTextColor(w2.Hdc, w2.Config.TextColor) // цвет самого теста
+		SetBkColor(w2.Hdc, w2.Config.BgColor)     // цвет подложки текста
 
+		//SetWindowText(w2.Hwnd, w2.Config.Title)
+		txt := w2.Config.Title
+		TextOut(w2.Hdc, 0, 0, &txt, int32(len(txt)))
+		SelectObject(w2.Hdc, oldFont)
+
+		EndPaint(w2.Hwnd, &ps)
+	}
 }
 
 // update() handles changes done by the user, and updates the configuration.

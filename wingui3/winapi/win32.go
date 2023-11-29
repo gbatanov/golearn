@@ -16,6 +16,15 @@ import (
 	syscall "golang.org/x/sys/windows"
 )
 
+type PAINTSTRUCT struct {
+	hdc         syscall.Handle
+	fErase      bool
+	rcPaint     Rect
+	fRestore    bool
+	fIncUpdate  bool
+	rgbReserved uint32
+}
+
 // NRGBA represents a non-alpha-premultiplied 32-bit color.
 type NRGBA struct {
 	R, G, B, A uint8
@@ -400,12 +409,13 @@ var (
 	_SetWindowLong32             = user32.NewProc("SetWindowLongW")
 	_SetWindowPlacement          = user32.NewProc("SetWindowPlacement")
 	_SetWindowPos                = user32.NewProc("SetWindowPos")
-
-	_SetWindowText    = user32.NewProc("SetWindowTextW")
-	_TranslateMessage = user32.NewProc("TranslateMessage")
-	_UnregisterClass  = user32.NewProc("UnregisterClassW")
-	_UpdateWindow     = user32.NewProc("UpdateWindow")
-	_EnableWindow     = user32.NewProc("EnableWindow")
+	_SetWindowText               = user32.NewProc("SetWindowTextW")
+	_TranslateMessage            = user32.NewProc("TranslateMessage")
+	_UnregisterClass             = user32.NewProc("UnregisterClassW")
+	_UpdateWindow                = user32.NewProc("UpdateWindow")
+	_EnableWindow                = user32.NewProc("EnableWindow")
+	_BeginPaint                  = user32.NewProc("BeginPaint")
+	_EndPaint                    = user32.NewProc("EndPaint")
 
 	shcore            = syscall.NewLazySystemDLL("shcore")
 	_GetDpiForMonitor = shcore.NewProc("GetDpiForMonitor")
@@ -420,6 +430,9 @@ var (
 	_SetTextColor     = gdi32.NewProc("SetTextColor")
 	_GetStockObject   = gdi32.NewProc("GetStockObject")
 	_CreateSolidBrush = gdi32.NewProc("CreateSolidBrush")
+	_SelectObject     = gdi32.NewProc("SelectObject")
+	_SetTextAlign     = gdi32.NewProc("SetTextAlign")
+	_CreateFont       = gdi32.NewProc("CreateFontW")
 
 	imm32                    = syscall.NewLazySystemDLL("imm32")
 	_ImmGetContext           = imm32.NewProc("ImmGetContext")
@@ -940,4 +953,57 @@ func (p *WindowPlacement) Set(Left, Top, Right, Bottom int) {
 	p.rcNormalPosition.Top = int32(Top)
 	p.rcNormalPosition.Right = int32(Right)
 	p.rcNormalPosition.Bottom = int32(Bottom)
+}
+
+func SelectObject(hdc syscall.Handle, hgdiobj syscall.Handle) syscall.Handle {
+	ret, _, _ := _SelectObject.Call(uintptr(hdc), uintptr(hgdiobj))
+
+	return syscall.Handle(ret)
+}
+
+func SetTextAlign(hdc syscall.Handle, fMode uint32) uint32 {
+	ret, _, _ := _SetTextAlign.Call(uintptr(hdc), uintptr(fMode))
+	return uint32(ret)
+}
+
+func CreateFont(
+	nHeight, nWidth,
+	nEscapement,
+	nOrientation,
+	fnWeight int32,
+	fdwItalic,
+	fdwUnderline,
+	fdwStrikeOut,
+	fdwCharSet,
+	fdwOutputPrecision,
+	fdwClipPrecision,
+	fdwQuality,
+	fdwPitchAndFamily uint32,
+	lpszFace *uint16) syscall.Handle {
+	ret, _, _ := _CreateFont.Call(
+		uintptr(nHeight),
+		uintptr(nWidth),
+		uintptr(nEscapement),
+		uintptr(nOrientation),
+		uintptr(fnWeight),
+		uintptr(fdwItalic),
+		uintptr(fdwUnderline),
+		uintptr(fdwStrikeOut),
+		uintptr(fdwCharSet),
+		uintptr(fdwOutputPrecision),
+		uintptr(fdwClipPrecision),
+		uintptr(fdwQuality),
+		uintptr(fdwPitchAndFamily),
+		uintptr(unsafe.Pointer(lpszFace)))
+
+	return syscall.Handle(ret)
+}
+
+func BeginPaint(hwnd syscall.Handle, lpPaint *PAINTSTRUCT) syscall.Handle {
+	ret, _, _ := _BeginPaint.Call(uintptr(hwnd), uintptr(unsafe.Pointer(lpPaint)))
+
+	return syscall.Handle(ret)
+}
+func EndPaint(hwnd syscall.Handle, lpPaint *PAINTSTRUCT) {
+	_EndPaint.Call(uintptr(hwnd), uintptr(unsafe.Pointer(lpPaint)))
 }
