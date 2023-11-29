@@ -3,7 +3,6 @@ package winapi
 import (
 	"errors"
 	"image"
-	"log"
 	"sync"
 	"unsafe"
 
@@ -168,7 +167,7 @@ func CreateNativeMainWindow(config *Config) error {
 	childConfig := &Config{
 		Title:      "Child",
 		EventChan:  w.Config.EventChan,
-		Size:       image.Pt(int(80), int(40)),
+		Size:       image.Pt(int(w.Config.Size.X-35), int(40)),
 		MinSize:    w.Config.MinSize,
 		MaxSize:    w.Config.MaxSize,
 		Position:   image.Pt(int(10), int(10)),
@@ -201,103 +200,6 @@ func CreateNativeMainWindow(config *Config) error {
 
 		TranslateMessage(msg)
 		DispatchMessage(msg)
-	}
-
-}
-
-func coordsFromlParam(lParam uintptr) (int, int) {
-	x := int(int16(lParam & 0xffff))
-	y := int(int16((lParam >> 16) & 0xffff))
-	return x, y
-}
-
-func (w *Window) draw(sync bool) {
-	if w.Config.Size.X == 0 || w.Config.Size.Y == 0 {
-		return
-	}
-
-	// Fill the region
-	if w.Id == 0 {
-		r2 := GetClientRect(w.Hwnd)
-		r2.Left += 120
-		r2.Top += 20
-		r2.Bottom -= 20
-		r2.Right -= 20
-
-		FillRect(w.Hdc, &r2, GetStockObject(1)) // 0,5-белый, 1 - серый, 2-темно-серый, 4 - черный
-	}
-
-}
-
-// update() handles changes done by the user, and updates the configuration.
-// It reads the window style and size/position and updates w.config.
-// If anything has changed it emits a ConfigEvent to notify the application.
-func (w *Window) update() {
-
-	cr := GetClientRect(w.Hwnd)
-	w.Config.Size = image.Point{
-		X: int(cr.Right - cr.Left),
-		Y: int(cr.Bottom - cr.Top),
-	}
-
-	w.Config.BorderSize = image.Pt(
-		GetSystemMetrics(SM_CXSIZEFRAME),
-		GetSystemMetrics(SM_CYSIZEFRAME),
-	)
-	//		w.w.Event(ConfigEvent{Config: w.config})
-
-}
-
-func (w *Window) SetCursor(cursor Cursor) {
-	c, err := loadCursor(cursor)
-	if err != nil {
-		c = resources.cursor
-	}
-	w.Cursor = c
-	SetCursor(w.Cursor) // Win32 API function
-}
-
-func loadCursor(cursor Cursor) (syscall.Handle, error) {
-	switch cursor {
-	case CursorDefault:
-		return resources.cursor, nil
-	case CursorNone:
-		return 0, nil
-	default:
-		return LoadCursor(windowsCursor[cursor])
-	}
-}
-
-func (w *Window) pointerButton(btn Buttons, press bool, lParam uintptr, kmods Modifiers) {
-	if !w.Focused {
-		SetFocus(w.Hwnd)
-	}
-	log.Println("pointerButton", btn, press)
-	var kind Kind
-	if press {
-		kind = Press
-		if w.PointerBtns == 0 {
-			SetCapture(w.Hwnd) // Захват событий мыши окном
-		}
-		w.PointerBtns |= btn
-	} else {
-		kind = Release
-		w.PointerBtns &^= btn
-		if w.PointerBtns == 0 {
-			ReleaseCapture() // Освобождение событий мыши окном
-		}
-	}
-
-	x, y := coordsFromlParam(lParam)
-	p := image.Point{X: (x), Y: (y)}
-	w.Config.EventChan <- Event{
-		SWin:      w,
-		Kind:      kind,
-		Source:    Mouse,
-		Position:  p,
-		Buttons:   w.PointerBtns,
-		Time:      GetMessageTime(),
-		Modifiers: kmods,
 	}
 
 }
