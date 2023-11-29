@@ -7,13 +7,18 @@ package winapi
 
 import (
 	"fmt"
-	"log"
 	"runtime"
 	"time"
 	"unicode/utf16"
 	"unsafe"
 
 	syscall "golang.org/x/sys/windows"
+)
+
+const (
+	ANSI_CHARSET    = 0
+	DEFAULT_CHARSET = 1
+	RUSSIAN_CHARSET = 204
 )
 
 type PAINTSTRUCT struct {
@@ -626,7 +631,6 @@ func GetWindowPlacement(hwnd syscall.Handle) *WindowPlacement {
 
 func InvalidateRect(hwnd syscall.Handle, r *Rect, erase int32) {
 	_InvalidateRect.Call(uintptr(hwnd), uintptr(unsafe.Pointer(r)), uintptr(erase))
-
 }
 
 func GetMonitorInfo(hwnd syscall.Handle) MonitorInfo {
@@ -720,47 +724,36 @@ func SetWindowText(hwnd syscall.Handle, title string) {
 }
 
 func SetBkColor(hdc syscall.Handle, color uint32) {
-	r1, r2, r3 := _SetBkColor.Call(uintptr(hdc), uintptr(color))
-	log.Printf("SetBkColor 0x%04x, 0x%08x %s", r1, r2, string(r3.Error()))
+	_SetBkColor.Call(uintptr(hdc), uintptr(color))
 }
 
 func SetBkMode(hdc syscall.Handle, mode uint32) {
-	r1, r2, r3 := _SetBkMode.Call(uintptr(hdc), uintptr(mode))
-	log.Printf("SetBkMode 0x%04x, 0x%08x %s", r1, r2, string(r3.Error()))
+	_SetBkMode.Call(uintptr(hdc), uintptr(mode))
 }
 
 func SetTextColor(hdc syscall.Handle, color uint32) {
-	r1, r2, r3 := _SetTextColor.Call(uintptr(hdc), uintptr(color))
-	log.Printf("SetTextColor 0x%04x, 0x%08x %s", r1, r2, string(r3.Error()))
+	_SetTextColor.Call(uintptr(hdc), uintptr(color))
 }
 
 func BeginPath(hdc syscall.Handle) {
-	r1, r2, r3 := _BeginPath.Call(uintptr(hdc))
-	log.Println("BeginPath", r1, r2, r3)
+	_BeginPath.Call(uintptr(hdc))
 }
 
 func EndPath(hdc syscall.Handle) {
-	r1, r2, r3 := _EndPath.Call(uintptr(hdc))
-	log.Println("EndPath", r1, r2, r3)
+	_EndPath.Call(uintptr(hdc))
 }
 
 func TextOut(hdc syscall.Handle, x int32, y int32, text *string, len int32) {
 	_text := syscall.StringToUTF16Ptr(*text)
-	//	length := len(*text)
-	r1, r2, r3 := _TextOut.Call(uintptr(hdc), uintptr(x), uintptr(y), uintptr(unsafe.Pointer(_text)), uintptr(len))
-	log.Println("TextOut", r1, r2, r3)
+	_TextOut.Call(uintptr(hdc), uintptr(x), uintptr(y), uintptr(unsafe.Pointer(_text)), uintptr(len))
 }
 
 func GetStockObject(i int32) syscall.Handle {
-	r1, r2, r3 := _GetStockObject.Call(uintptr(i))
-	log.Println("GetStockObject", r1, r2, r3)
+	r1, _, _ := _GetStockObject.Call(uintptr(i))
 	return syscall.Handle(r1)
-
 }
 func FillRect(hdc syscall.Handle, r *Rect, hbr syscall.Handle) {
-	r1, r2, r3 := _FillRect.Call(uintptr(hdc), uintptr(unsafe.Pointer(r)), uintptr(unsafe.Pointer(hbr)))
-	log.Println("FillRect", r1, r2, r3)
-
+	_FillRect.Call(uintptr(hdc), uintptr(unsafe.Pointer(r)), uintptr(unsafe.Pointer(hbr)))
 }
 
 func GlobalAlloc(size int) (syscall.Handle, error) {
@@ -1001,9 +994,9 @@ func CreateFont(
 
 func BeginPaint(hwnd syscall.Handle, lpPaint *PAINTSTRUCT) syscall.Handle {
 	ret, _, _ := _BeginPaint.Call(uintptr(hwnd), uintptr(unsafe.Pointer(lpPaint)))
-
 	return syscall.Handle(ret)
 }
+
 func EndPaint(hwnd syscall.Handle, lpPaint *PAINTSTRUCT) {
 	_EndPaint.Call(uintptr(hwnd), uintptr(unsafe.Pointer(lpPaint)))
 }

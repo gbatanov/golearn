@@ -297,20 +297,21 @@ func (w *Window) draw(sync bool) {
 	r1 := GetClientRect(w.Hwnd)
 	hbrBkgnd, _ := CreateSolidBrush(int32(w.Config.BgColor))
 	// Fill the region Main window
-	FillRect(w.Hdc, &r1, hbrBkgnd) // GetStockObject(0) 0,5-белый, 1 - серый, 2-темно-серый, 4 - черный
+	FillRect(w.Hdc, &r1, hbrBkgnd)
 
+	// Отрисовка текста в статических дочерних окнах
 	for _, w2 := range w.Childrens { // Ключом будет ChildId
 		var ps PAINTSTRUCT = PAINTSTRUCT{}
 		BeginPaint(w2.Hwnd, &ps)
-		hFont := CreateFont(24, 12, 0, 0, 0,
-			0, 0, 0, 0,
+		hFont := CreateFont(28, 12, 0, 0, 0,
+			0, 0, 0,
+			DEFAULT_CHARSET,
 			0, 0, 0, 0,
 			syscall.StringToUTF16Ptr("Tahoma"))
+
 		oldFont := SelectObject(w2.Hdc, hFont)
 		SetTextColor(w2.Hdc, w2.Config.TextColor) // цвет самого теста
 		SetBkColor(w2.Hdc, w2.Config.BgColor)     // цвет подложки текста
-
-		//SetWindowText(w2.Hwnd, w2.Config.Title)
 		txt := w2.Config.Title
 		TextOut(w2.Hdc, 0, 0, &txt, int32(len(txt)))
 		SelectObject(w2.Hdc, oldFont)
