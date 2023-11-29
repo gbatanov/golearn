@@ -132,18 +132,18 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintptr
 				w.Stage = StageInactive
 			}
 		}
+		/*
+			case WM_NCHITTEST:
+				//		if w.Config.Decorated {
+				//			// Let the system handle it.
+				break
+				//		}
+				x, y := coordsFromlParam(lParam)
 
-	case WM_NCHITTEST:
-		//		if w.Config.Decorated {
-		//			// Let the system handle it.
-		//			break
-		//		}
-		x, y := coordsFromlParam(lParam)
-
-		np := Point{X: int32(x), Y: int32(y)}
-		ScreenToClient(w.Hwnd, &np)
-		return w.hitTest(int(np.X), int(np.Y))
-
+				np := Point{X: int32(x), Y: int32(y)}
+				ScreenToClient(w.Hwnd, &np)
+				return w.hitTest(int(np.X), int(np.Y))
+		*/
 	case WM_DESTROY:
 		//		w.w.Event(ViewEvent{})
 		//		w.w.Event(system.DestroyEvent{})
@@ -154,28 +154,30 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintptr
 		// The system destroys the HWND for us.
 		w.Hwnd = 0
 		PostQuitMessage(0)
-	case WM_NCCALCSIZE:
-		//		if w.Config.Decorated {
-		//			// Let Windows handle decorations.
-		//			break
-		//		}
-		// No client areas; we draw decorations ourselves.
-		if wParam != 1 {
-			return 0
-		}
-		// lParam contains an NCCALCSIZE_PARAMS for us to adjust.
-		place := GetWindowPlacement(w.Hwnd)
-		if !place.IsMaximized() {
-			// Nothing do adjust.
-			return 0
-		}
-		// Adjust window position to avoid the extra padding in maximized
-		// state. See https://devblogs.microsoft.com/oldnewthing/20150304-00/?p=44543.
-		// Note that trying to do the adjustment in WM_GETMINMAXINFO is ignored by
-		szp := (*NCCalcSizeParams)(unsafe.Pointer(uintptr(lParam)))
-		mi := GetMonitorInfo(w.Hwnd)
-		szp.Rgrc[0] = mi.WorkArea
-		return 0
+		/*
+			case WM_NCCALCSIZE:
+				//		if w.Config.Decorated {
+				//			// Let Windows handle decorations.
+				break
+				//		}
+				// No client areas; we draw decorations ourselves.
+				if wParam != 1 {
+					return 0
+				}
+				// lParam contains an NCCALCSIZE_PARAMS for us to adjust.
+				place := GetWindowPlacement(w.Hwnd)
+				if !place.IsMaximized() {
+					// Nothing do adjust.
+					return 0
+				}
+				// Adjust window position to avoid the extra padding in maximized
+				// state. See https://devblogs.microsoft.com/oldnewthing/20150304-00/?p=44543.
+				// Note that trying to do the adjustment in WM_GETMINMAXINFO is ignored by
+				szp := (*NCCalcSizeParams)(unsafe.Pointer(uintptr(lParam)))
+				mi := GetMonitorInfo(w.Hwnd)
+				szp.Rgrc[0] = mi.WorkArea
+				return 0
+		*/
 	case WM_PAINT:
 		w.draw(true)
 
@@ -397,4 +399,10 @@ func coordsFromlParam(lParam uintptr) (int, int) {
 	x := int(int16(lParam & 0xffff))
 	y := int(int16((lParam >> 16) & 0xffff))
 	return x, y
+}
+
+func (w *Window) SetText(text string) {
+	w.Config.Title = text
+	r := GetClientRect(w.Hwnd)
+	InvalidateRect(w.Hwnd, &r, 0)
 }

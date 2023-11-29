@@ -59,7 +59,7 @@ type Window struct {
 	HInst       syscall.Handle
 	Focused     bool
 	Stage       Stage
-	Config      *Config
+	Config      Config
 	Cursor      syscall.Handle
 	PointerBtns Buttons //Кнопки мыши
 	Parent      *Window
@@ -120,7 +120,7 @@ func initResources(child bool) error {
 const dwExStyle = WS_EX_APPWINDOW | WS_EX_WINDOWEDGE
 
 // Создание основного окна программы
-func CreateNativeMainWindow(config *Config) (*Window, error) {
+func CreateNativeMainWindow(config Config) (*Window, error) {
 
 	var resErr error
 	resources.once.Do(func() {
