@@ -11,7 +11,6 @@ import (
 const VERSION = "v0.0.15"
 
 var mouseX, mouseY int = 0, 0
-var startMove bool = false
 
 func main() {
 
@@ -82,55 +81,20 @@ func main() {
 
 // Обработка событий мыши
 func MouseHandler(ev winapi.Event) {
+	mouseX = ev.Position.X
+	mouseY = ev.Position.Y
+
 	switch ev.Kind {
 	case winapi.Move:
 		//		log.Println("Mouse move ", ev.Position)
-		/*
-			if startMove {
-
-				if ev.SWin.Id == 0 {
-
-					ev.SWin.Config.Position.X += (ev.Position.X)
-					ev.SWin.Config.Position.Y += (ev.Position.Y)
-
-					winapi.SetWindowPos( // MoveWindow работает хуже
-						ev.SWin.Hwnd,
-						0, int32(ev.SWin.Config.Position.X), int32(ev.SWin.Config.Position.Y),
-						int32(ev.SWin.Config.Size.X), int32(ev.SWin.Config.Size.Y),
-						winapi.SWP_NOSIZE|winapi.SWP_FRAMECHANGED)
-
-					mouseX = ev.Position.X
-					mouseY = ev.Position.Y
-
-				}
-
-			}
-		*/
 	case winapi.Press:
 		log.Println("Mouse key press ", ev.Position)
-		/*
-			if ev.SWin.Id == 0 && ev.SWin.PointerBtns == winapi.ButtonPrimary {
-				startMove = true
-			}
-		*/
 	case winapi.Release:
 		log.Println("Mouse key release ", ev.Position)
-		/*
-			if ev.SWin.Id == 0 {
-				startMove = false
-			}
-		*/
 	case winapi.Leave:
 		log.Println("Mouse lost focus ")
-		//		startMove = false
-		mouseX = ev.Position.X
-		mouseY = ev.Position.Y
 	case winapi.Enter:
-		//		startMove = false
-
 		log.Println("Mouse enter focus ")
-		mouseX = ev.Position.X
-		mouseY = ev.Position.Y
 
 	}
 }
