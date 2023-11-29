@@ -27,7 +27,7 @@ var config = winapi.Config{
 var labelConfig = winapi.Config{
 	Title:      "Child",
 	EventChan:  config.EventChan,
-	Size:       image.Pt(int(config.Size.X-10), int(60)),
+	Size:       image.Pt(int(config.Size.X-10), int(30)),
 	MinSize:    config.MinSize,
 	MaxSize:    config.MaxSize,
 	Position:   image.Pt(int(18), int(15)),
@@ -82,13 +82,13 @@ func main() {
 
 func AddLabel(win *winapi.Window, lblConfig winapi.Config) error {
 
-	lblConfig.Position.Y = 10 + (lblConfig.Size.Y/2+10)*(winapi.ChildId-1)
+	lblConfig.Position.Y = 10 + (lblConfig.Size.Y)*(winapi.ChildId-1)
 	chWin, err := winapi.CreateLabel(win, lblConfig)
 	if err == nil {
 		winapi.WinMap.Store(chWin.Hwnd, chWin)
 		defer winapi.WinMap.Delete(chWin.Hwnd)
 
-		win.Config.Size.Y = lblConfig.Size.Y * (winapi.ChildId - 1)
+		win.Config.Size.Y = lblConfig.Size.Y * (winapi.ChildId + 1)
 		win.Config.MinSize.Y = win.Config.Size.Y
 		win.Config.MaxSize.Y = win.Config.Size.Y
 		return nil
