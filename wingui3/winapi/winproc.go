@@ -136,10 +136,10 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintptr
 		}
 
 	case WM_NCHITTEST:
-		if w.Config.Decorated {
-			// Let the system handle it.
-			break
-		}
+		//		if w.Config.Decorated {
+		//			// Let the system handle it.
+		//			break
+		//		}
 		x, y := coordsFromlParam(lParam)
 
 		np := Point{X: int32(x), Y: int32(y)}
@@ -157,10 +157,10 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintptr
 		w.Hwnd = 0
 		PostQuitMessage(0)
 	case WM_NCCALCSIZE:
-		if w.Config.Decorated {
-			// Let Windows handle decorations.
-			break
-		}
+		//		if w.Config.Decorated {
+		//			// Let Windows handle decorations.
+		//			break
+		//		}
 		// No client areas; we draw decorations ourselves.
 		if wParam != 1 {
 			return 0
@@ -198,13 +198,14 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintptr
 		}
 	case WM_GETMINMAXINFO:
 		mm := (*MinMaxInfo)(unsafe.Pointer(uintptr(lParam)))
-		var bw, bh int32
-		if w.Config.Decorated {
-			r := GetWindowRect(w.Hwnd)
-			cr := GetClientRect(w.Hwnd)
-			bw = r.Right - r.Left - (cr.Right - cr.Left)
-			bh = r.Bottom - r.Top - (cr.Bottom - cr.Top)
-		}
+		var bw, bh int32 = 0, 0
+		//		if w.Config.Decorated {
+		// Этот код дает косяки в отрисовке окна при перемещении
+		//	r := GetWindowRect(w.Hwnd)
+		//	cr := GetClientRect(w.Hwnd)
+		//	bw = r.Right - r.Left - (cr.Right - cr.Left)
+		//	bh = r.Bottom - r.Top - (cr.Bottom - cr.Top)
+		//		}
 		if p := w.Config.MinSize; p.X > 0 || p.Y > 0 {
 			mm.PtMinTrackSize = Point{
 				X: int32(p.X) + bw,
@@ -243,10 +244,10 @@ func (w *Window) hitTest(x, y int) uintptr {
 	// Check for resize handle before system actions; otherwise it can be impossible to
 	// resize a custom-decorations window when the system move area is flush with the
 	// edge of the window.
-	top := y <= w.BorderSize.Y
-	bottom := y >= w.Config.Size.Y-w.BorderSize.Y
-	left := x <= w.BorderSize.X
-	right := x >= w.Config.Size.X-w.BorderSize.X
+	top := y <= w.Config.BorderSize.Y
+	bottom := y >= w.Config.Size.Y-w.Config.BorderSize.Y
+	left := x <= w.Config.BorderSize.X
+	right := x >= w.Config.Size.X-w.Config.BorderSize.X
 	switch {
 	case top && left:
 		return HTTOPLEFT

@@ -41,24 +41,25 @@ const (
 )
 
 type Config struct {
-	Position  image.Point
-	Size      image.Point
-	MinSize   image.Point
-	MaxSize   image.Point
-	Mode      WindowMode
-	Decorated bool
-	Title     string
-	EventChan chan Event
+	Position image.Point
+	Size     image.Point
+	MinSize  image.Point
+	MaxSize  image.Point
+	Mode     WindowMode
+	//	Decorated bool
+	Title      string
+	EventChan  chan Event
+	BorderSize image.Point
 }
 
 type Window struct {
 	Id          int32 // 0 у главного, начиная с 1 у дочерних
 	Hwnd        syscall.Handle
 	Hdc         syscall.Handle
+	HInst       syscall.Handle
 	Focused     bool
 	Stage       Stage
 	Config      *Config
-	BorderSize  image.Point
 	Cursor      syscall.Handle
 	PointerBtns Buttons //Кнопки мыши
 	Parent      *Window
@@ -71,7 +72,7 @@ type Window struct {
 // iconID is the ID of the icon in the resource file.
 const iconID = 1
 
-type resources struct {
+var resources struct {
 	once sync.Once
 	// handle is the module handle from GetModuleHandle.
 	handle syscall.Handle
@@ -80,9 +81,6 @@ type resources struct {
 	// cursor is the arrow cursor resource.
 	cursor syscall.Handle
 }
-
-var resourceMain resources = resources{}
-var resourceChild resources = resources{}
 
 // initResources initializes the resources global.
 func initResources(child bool) error {
@@ -102,28 +100,19 @@ func initResources(child bool) error {
 		CbSize:    uint32(unsafe.Sizeof(WndClassEx{})),
 		HInstance: hInst,
 	}
-	if child {
-		wcls.Style = CS_HREDRAW | CS_VREDRAW /*| CS_OWNDC*/
-		wcls.LpszClassName = syscall.StringToUTF16Ptr("Static")
-		wcls.LpfnWndProc = syscall.NewCallback(windowChildProc)
-		wcls.HIcon = 0
-		resourceChild.handle = hInst
-		resourceChild.cursor = c
-		resourceChild.class = "Static"
-	} else {
-		wcls.Style = CS_HREDRAW | CS_VREDRAW | CS_OWNDC
-		wcls.HIcon = icon
-		wcls.LpszClassName = syscall.StringToUTF16Ptr("GsbWindow")
 
-		wcls.LpfnWndProc = syscall.NewCallback(windowProc)
-		_, err := RegisterClassEx(&wcls)
-		if err != nil {
-			return err
-		}
-		resourceMain.handle = hInst
-		resourceMain.cursor = c
-		resourceMain.class = "GsbWindow"
+	wcls.Style = CS_HREDRAW | CS_VREDRAW | CS_OWNDC
+	wcls.HIcon = icon
+	wcls.LpszClassName = syscall.StringToUTF16Ptr("GsbWindow")
+
+	wcls.LpfnWndProc = syscall.NewCallback(windowProc)
+	_, err = RegisterClassEx(&wcls)
+	if err != nil {
+		return err
 	}
+	resources.handle = hInst
+	resources.cursor = c
+	resources.class = "GsbWindow"
 
 	return nil
 }
@@ -134,7 +123,7 @@ const dwExStyle = WS_EX_APPWINDOW | WS_EX_WINDOWEDGE
 func CreateNativeMainWindow(config *Config) error {
 
 	var resErr error
-	resourceMain.once.Do(func() {
+	resources.once.Do(func() {
 		resErr = initResources(false)
 	})
 	if resErr != nil {
@@ -142,12 +131,9 @@ func CreateNativeMainWindow(config *Config) error {
 	}
 	// WS_CAPTION включает в себя WS_BORDER
 	var dwStyle uint32 = 0 | WS_CAPTION | WS_SYSMENU //WS_THICKFRAME
-	if config.Decorated {
-		dwStyle = dwStyle | WS_SYSMENU | WS_CLIPSIBLINGS | WS_CLIPCHILDREN
-	} else {
-		//	dwStyle = dwStyle | WS_BORDER //| WS_POPUP
-		//	config.Title = ""
-	}
+	//	if config.Decorated {
+	//		dwStyle = dwStyle | WS_SYSMENU | WS_CLIPSIBLINGS | WS_CLIPCHILDREN
+	//	}
 
 	hwnd, err := CreateWindowEx(
 		dwExStyle,
@@ -156,16 +142,17 @@ func CreateNativeMainWindow(config *Config) error {
 		dwStyle,                                            //dwStyle
 		int32(config.Position.X), int32(config.Position.Y), //x, y
 		int32(config.Size.X), int32(config.Size.Y), //w, h
-		0,                   //hWndParent
-		0,                   // hMenu
-		resourceMain.handle, //hInstance
-		0)                   // lpParam
+		0,                //hWndParent
+		0,                // hMenu
+		resources.handle, //hInstance
+		0)                // lpParam
 	if err != nil {
 		return err
 	}
 	w := &Window{
 		Id:        0,
 		Hwnd:      hwnd,
+		HInst:     resources.handle,
 		Config:    config,
 		Parent:    nil,
 		Childrens: make([]*Window, 0),
@@ -178,20 +165,28 @@ func CreateNativeMainWindow(config *Config) error {
 	winMap.Store(w.Hwnd, w)
 	defer winMap.Delete(w.Hwnd)
 
-	SetForegroundWindow(w.Hwnd)
-	SetFocus(w.Hwnd)
-
-	w.SetCursor(CursorDefault)
-
-	ShowWindow(w.Hwnd, SW_SHOWNORMAL)
-
-	chWin, err := CreateChildWindow(w, 10, 10, 80, 40)
+	childConfig := &Config{
+		Title:      "Child",
+		EventChan:  w.Config.EventChan,
+		Size:       image.Pt(int(80), int(40)),
+		MinSize:    w.Config.MinSize,
+		MaxSize:    w.Config.MaxSize,
+		Position:   image.Pt(int(10), int(10)),
+		Mode:       Windowed,
+		BorderSize: image.Pt(0, 0),
+	}
+	chWin, err := CreateChildWindow(w, childConfig)
 	if err != nil {
 		panic(err.Error())
 	}
 
 	winMap.Store(chWin.Hwnd, chWin)
 	defer winMap.Delete(chWin.Hwnd)
+
+	SetForegroundWindow(w.Hwnd)
+	SetFocus(w.Hwnd)
+	w.SetCursor(CursorDefault)
+	ShowWindow(w.Hwnd, SW_SHOWNORMAL)
 
 	msg := new(Msg)
 	for {
@@ -245,7 +240,7 @@ func (w *Window) update() {
 		Y: int(cr.Bottom - cr.Top),
 	}
 
-	w.BorderSize = image.Pt(
+	w.Config.BorderSize = image.Pt(
 		GetSystemMetrics(SM_CXSIZEFRAME),
 		GetSystemMetrics(SM_CYSIZEFRAME),
 	)
@@ -256,7 +251,7 @@ func (w *Window) update() {
 func (w *Window) SetCursor(cursor Cursor) {
 	c, err := loadCursor(cursor)
 	if err != nil {
-		c = resourceMain.cursor
+		c = resources.cursor
 	}
 	w.Cursor = c
 	SetCursor(w.Cursor) // Win32 API function
@@ -265,7 +260,7 @@ func (w *Window) SetCursor(cursor Cursor) {
 func loadCursor(cursor Cursor) (syscall.Handle, error) {
 	switch cursor {
 	case CursorDefault:
-		return resourceMain.cursor, nil
+		return resources.cursor, nil
 	case CursorNone:
 		return 0, nil
 	default:

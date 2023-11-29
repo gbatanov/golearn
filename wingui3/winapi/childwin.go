@@ -1,8 +1,6 @@
 package winapi
 
 import (
-	"image"
-
 	syscall "golang.org/x/sys/windows"
 )
 
@@ -10,43 +8,32 @@ const ID_FIRSTCHILD = 100
 
 var ChildId = 1
 
-func CreateChildWindow(parent *Window, x, y, width, height int32) (*Window, error) {
-	var resErr error
-	resourceChild.once.Do(func() {
-		resErr = initResources(true)
-	})
-	if resErr != nil {
-		return nil, resErr
+func CreateChildWindow(parent *Window, config *Config) (*Window, error) {
+
+	var dwStyle uint32 = WS_CHILD | WS_VISIBLE
+	if config.BorderSize.X > 0 {
+		dwStyle |= WS_BORDER
 	}
-	const dwStyle = /*WS_THICKFRAME |*/ WS_CHILD | WS_VISIBLE | WS_BORDER
 
 	hwnd, err := CreateWindowEx(
 		0,
-		"Static", // resourceChild.class, //lpClassName
-		"Child",  // lpWindowName
-		dwStyle,  //dwStyle
-		x, y,     //x, y
-		width, height, //w, h
-		parent.Hwnd,          //hWndParent
-		0,                    // hMenu
-		resourceChild.handle, //hInstance
-		0)                    // lpParam
+		"Static",                                           // resourceChild.class, //lpClassName
+		"Child",                                            // lpWindowName
+		dwStyle,                                            //dwStyle
+		int32(config.Position.X), int32(config.Position.Y), //x, y
+		int32(config.Size.X), int32(config.Size.Y), //w, h
+		parent.Hwnd,  //hWndParent
+		0,            // hMenu
+		parent.HInst, //hInstance
+		0)            // lpParam
 	if err != nil {
 		return nil, err
 	}
 	w := &Window{
-		Id:   int32(ChildId),
-		Hwnd: hwnd,
-		Config: &Config{
-			Decorated: false,
-			Title:     "Childer",
-			EventChan: parent.Config.EventChan,
-			Size:      image.Pt(int(width), int(height)),
-			MinSize:   parent.Config.MinSize,
-			MaxSize:   parent.Config.MaxSize,
-			Position:  image.Pt(int(x), int(y)),
-			Mode:      Windowed,
-		},
+		Id:        int32(ChildId),
+		Hwnd:      hwnd,
+		HInst:     parent.HInst,
+		Config:    config,
 		Parent:    parent,
 		Childrens: nil,
 	}
