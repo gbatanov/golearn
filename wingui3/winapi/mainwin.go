@@ -39,12 +39,12 @@ const (
 )
 
 type Config struct {
-	Position image.Point
-	Size     image.Point
-	MinSize  image.Point
-	MaxSize  image.Point
-	Mode     WindowMode
-	//	Decorated bool
+	Position   image.Point
+	Size       image.Point
+	MinSize    image.Point
+	MaxSize    image.Point
+	Mode       WindowMode
+	SysMenu    bool
 	Title      string
 	EventChan  chan Event
 	BorderSize image.Point
@@ -130,10 +130,10 @@ func CreateNativeMainWindow(config Config) (*Window, error) {
 		return nil, resErr
 	}
 	// WS_CAPTION включает в себя WS_BORDER
-	var dwStyle uint32 = 0 | WS_CAPTION | WS_SYSMENU //WS_THICKFRAME
-	//	if config.Decorated {
-	//		dwStyle = dwStyle | WS_SYSMENU | WS_CLIPSIBLINGS | WS_CLIPCHILDREN
-	//	}
+	var dwStyle uint32 = 0 | WS_CAPTION
+	if config.SysMenu {
+		dwStyle = dwStyle | WS_SYSMENU
+	}
 
 	hwnd, err := CreateWindowEx(
 		dwExStyle,

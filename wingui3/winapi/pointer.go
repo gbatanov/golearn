@@ -155,6 +155,7 @@ const (
 	Leave
 	// Scroll of a pointer.
 	Scroll
+	Destroy // Закрытие окна
 )
 
 const (
@@ -162,6 +163,8 @@ const (
 	Mouse Source = iota
 	// Touch generated event.
 	Touch
+	//
+	Frame
 )
 
 const (

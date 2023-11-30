@@ -23,6 +23,20 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintptr
 		panic("Main WM_NCCREATE")
 	case WM_CREATE:
 		panic("Main WM_CREATE")
+	case WM_DESTROY:
+		w.Config.EventChan <- Event{
+			SWin:   w,
+			Kind:   Destroy,
+			Source: Frame,
+			Time:   GetMessageTime(),
+		}
+		if w.Hdc != 0 {
+			ReleaseDC(w.Hdc)
+			w.Hdc = 0
+		}
+		// The system destroys the HWND for us.
+		w.Hwnd = 0
+		PostQuitMessage(0)
 
 	case WM_UNICHAR:
 		if wParam == UNICODE_NOCHAR {
@@ -144,16 +158,6 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintptr
 				ScreenToClient(w.Hwnd, &np)
 				return w.hitTest(int(np.X), int(np.Y))
 		*/
-	case WM_DESTROY:
-		//		w.w.Event(ViewEvent{})
-		//		w.w.Event(system.DestroyEvent{})
-		if w.Hdc != 0 {
-			ReleaseDC(w.Hdc)
-			w.Hdc = 0
-		}
-		// The system destroys the HWND for us.
-		w.Hwnd = 0
-		PostQuitMessage(0)
 		/*
 			case WM_NCCALCSIZE:
 				//		if w.Config.Decorated {
@@ -337,8 +341,6 @@ func (w *Window) update() {
 		GetSystemMetrics(SM_CXSIZEFRAME),
 		GetSystemMetrics(SM_CYSIZEFRAME),
 	)
-	//		w.w.Event(ConfigEvent{Config: w.config})
-
 }
 
 func (w *Window) SetCursor(cursor Cursor) {
@@ -401,8 +403,15 @@ func coordsFromlParam(lParam uintptr) (int, int) {
 	return x, y
 }
 
+// Текст в статическом окне
 func (w *Window) SetText(text string) {
-	w.Config.Title = text
-	r := GetClientRect(w.Hwnd)
-	InvalidateRect(w.Hwnd, &r, 0)
+	if w.Id > 0 {
+		w.Config.Title = text
+		r := GetClientRect(w.Hwnd)
+		InvalidateRect(w.Hwnd, &r, 0)
+	}
+}
+
+func (w *Window) Invalidate() {
+	w.draw(true)
 }

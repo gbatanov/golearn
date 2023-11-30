@@ -380,6 +380,7 @@ var (
 	_GetDpiForWindow             = user32.NewProc("GetDpiForWindow")
 	_GetKeyState                 = user32.NewProc("GetKeyState")
 	_GetMessage                  = user32.NewProc("GetMessageW")
+	_SendMessage                 = user32.NewProc("SendMessageW")
 	_GetMessageTime              = user32.NewProc("GetMessageTime")
 	_GetMonitorInfo              = user32.NewProc("GetMonitorInfoW")
 	_GetSystemMetrics            = user32.NewProc("GetSystemMetrics")
@@ -598,6 +599,13 @@ func GetMessage(m *Msg, hwnd syscall.Handle, wMsgFilterMin, wMsgFilterMax uint32
 		uintptr(hwnd),
 		uintptr(wMsgFilterMin),
 		uintptr(wMsgFilterMax))
+	return int32(r)
+}
+func SendMessage(hwnd syscall.Handle, m uint32, wParam, lParam uint32) int32 {
+	r, _, _ := _SendMessage.Call(uintptr(hwnd),
+		uintptr(m),
+		uintptr(wParam),
+		uintptr(lParam))
 	return int32(r)
 }
 

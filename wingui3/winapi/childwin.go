@@ -42,8 +42,6 @@ func CreateChildWindow(parent *Window, config Config, class string) (*Window, er
 		return nil, err
 	}
 	w.SetCursor(CursorDefault)
-	parent.Childrens[ChildId] = w
 
-	ChildId += 1
 	return w, nil
 }
