@@ -158,35 +158,40 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintptr
 				ScreenToClient(w.Hwnd, &np)
 				return w.hitTest(int(np.X), int(np.Y))
 		*/
-		/*
-			case WM_NCCALCSIZE:
-				//		if w.Config.Decorated {
-				//			// Let Windows handle decorations.
-				break
-				//		}
-				// No client areas; we draw decorations ourselves.
-				if wParam != 1 {
-					return 0
-				}
-				// lParam contains an NCCALCSIZE_PARAMS for us to adjust.
-				place := GetWindowPlacement(w.Hwnd)
-				if !place.IsMaximized() {
-					// Nothing do adjust.
-					return 0
-				}
-				// Adjust window position to avoid the extra padding in maximized
-				// state. See https://devblogs.microsoft.com/oldnewthing/20150304-00/?p=44543.
-				// Note that trying to do the adjustment in WM_GETMINMAXINFO is ignored by
-				szp := (*NCCalcSizeParams)(unsafe.Pointer(uintptr(lParam)))
-				mi := GetMonitorInfo(w.Hwnd)
-				szp.Rgrc[0] = mi.WorkArea
-				return 0
-		*/
+
+	case WM_NCCALCSIZE:
+		//		if w.Config.Decorated {
+		//			// Let Windows handle decorations.
+		break
+		//		}
+		// No client areas; we draw decorations ourselves.
+		if wParam != 1 {
+			return 0
+		}
+		// lParam contains an NCCALCSIZE_PARAMS for us to adjust.
+		place := GetWindowPlacement(w.Hwnd)
+		if !place.IsMaximized() {
+			// Nothing do adjust.
+			return 0
+		}
+		// Adjust window position to avoid the extra padding in maximized
+		// state. See https://devblogs.microsoft.com/oldnewthing/20150304-00/?p=44543.
+		// Note that trying to do the adjustment in WM_GETMINMAXINFO is ignored by
+		szp := (*NCCalcSizeParams)(unsafe.Pointer(uintptr(lParam)))
+		mi := GetMonitorInfo(w.Hwnd)
+		szp.Rgrc[0] = mi.WorkArea
+		return 0
+
 	case WM_PAINT:
 		w.draw(true)
 
-	case WM_SIZE:
+	case WM_MOVE:
 		w.update()
+		w.draw(true)
+		return 0
+
+	case WM_SIZE:
+
 		switch wParam {
 		case SIZE_MINIMIZED:
 			w.Config.Mode = Minimized
@@ -200,6 +205,9 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintptr
 			}
 			w.Stage = StageRunning
 		}
+		InvalidateRect(hwnd, nil, 1)
+		UpdateWindow(hwnd)
+		return 0
 	case WM_GETMINMAXINFO:
 		mm := (*MinMaxInfo)(unsafe.Pointer(uintptr(lParam)))
 		var bw, bh int32 = 0, 0
@@ -405,7 +413,7 @@ func coordsFromlParam(lParam uintptr) (int, int) {
 
 // Текст в статическом окне
 func (w *Window) SetText(text string) {
-	if w.Id > 0 {
+	if w.Parent != nil {
 		w.Config.Title = text
 		r := GetClientRect(w.Hwnd)
 		InvalidateRect(w.Hwnd, &r, 0)
@@ -413,5 +421,8 @@ func (w *Window) SetText(text string) {
 }
 
 func (w *Window) Invalidate() {
-	w.draw(true)
+	w.update()
+	InvalidateRect(w.Hwnd, nil, 1)
+	UpdateWindow(w.Hwnd)
+	//	w.draw(true)
 }

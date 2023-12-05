@@ -8,9 +8,10 @@ import (
 	"github.com/gbatanov/golearn/wingui3/winapi"
 )
 
-const VERSION = "v0.0.17"
+const VERSION = "v0.0.18"
 
 var mouseX, mouseY int = 0, 0
+var serverList []string = []string{"192.168.76.106", "192.168.76.80"}
 
 // Конфиг основного окна
 var config = winapi.Config{
@@ -59,13 +60,22 @@ func main() {
 		defer winapi.WinMap.Delete(win.Hwnd)
 
 		// Label с текстом
+		for id, title := range serverList {
+			labelConfig.Title = title
+			AddLabel(win, labelConfig, id)
+		}
+		win.Config.Size.Y = labelConfig.Size.Y * (len(serverList) + 2)
+		win.Config.MinSize.Y = win.Config.Size.Y
+		win.Config.MaxSize.Y = win.Config.Size.Y
 
-		labelConfig.Title = "192.168.76.106"
-		AddLabel(win, labelConfig)
-		labelConfig.Title = "192.168.76.95"
-		AddLabel(win, labelConfig)
-		labelConfig.Title = "192.168.76.98"
-		AddLabel(win, labelConfig)
+		winapi.SetWindowPos(win.Hwnd,
+			winapi.HWND_TOPMOST,
+			int32(win.Config.Position.X),
+			int32(win.Config.Position.Y),
+			int32(win.Config.Size.X),
+			int32(win.Config.Size.Y),
+			winapi.SWP_NOMOVE)
+
 		msg := new(winapi.Msg)
 		for winapi.GetMessage(msg, 0, 0, 0) > 0 {
 			winapi.TranslateMessage(msg)
@@ -80,17 +90,15 @@ func main() {
 
 }
 
-func AddLabel(win *winapi.Window, lblConfig winapi.Config) error {
+func AddLabel(win *winapi.Window, lblConfig winapi.Config, id int) error {
 
-	lblConfig.Position.Y = 10 + (lblConfig.Size.Y)*(winapi.ChildId-1)
-	chWin, err := winapi.CreateLabel(win, lblConfig)
+	lblConfig.Position.Y = 10 + (lblConfig.Size.Y)*(id)
+	chWin, err := winapi.CreateLabel(win, lblConfig, id)
 	if err == nil {
 		winapi.WinMap.Store(chWin.Hwnd, chWin)
 		defer winapi.WinMap.Delete(chWin.Hwnd)
+		win.Childrens[id] = chWin
 
-		win.Config.Size.Y = lblConfig.Size.Y * (winapi.ChildId + 1)
-		win.Config.MinSize.Y = win.Config.Size.Y
-		win.Config.MaxSize.Y = win.Config.Size.Y
 		return nil
 	}
 	return err

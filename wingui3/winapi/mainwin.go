@@ -53,7 +53,7 @@ type Config struct {
 }
 
 type Window struct {
-	Id          int32 // 0 у главного, начиная с 1 у дочерних
+	Id          int32 // 0 у главного, начиная с 0 у дочерних
 	Hwnd        syscall.Handle
 	Hdc         syscall.Handle
 	HInst       syscall.Handle

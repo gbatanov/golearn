@@ -1,14 +1,12 @@
 package winapi
 
-var ChildId = 1
-
 // Label
-func CreateLabel(parent *Window, config Config) (*Window, error) {
-	return CreateChildWindow(parent, config, "Static")
+func CreateLabel(parent *Window, config Config, id int) (*Window, error) {
+	return CreateChildWindow(parent, config, "Static", id)
 }
 
 // Создаем статическое окно
-func CreateChildWindow(parent *Window, config Config, class string) (*Window, error) {
+func CreateChildWindow(parent *Window, config Config, class string, id int) (*Window, error) {
 
 	var dwStyle uint32 = WS_CHILD | WS_VISIBLE
 	if config.BorderSize.X > 0 {
@@ -30,7 +28,7 @@ func CreateChildWindow(parent *Window, config Config, class string) (*Window, er
 		return nil, err
 	}
 	w := &Window{
-		Id:        int32(ChildId),
+		Id:        int32(id),
 		Hwnd:      hwnd,
 		HInst:     parent.HInst,
 		Config:    config,

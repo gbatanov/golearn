@@ -153,7 +153,8 @@ const (
 	CFS_POINT        = 0x0002
 	CFS_CANDIDATEPOS = 0x0040
 
-	HWND_TOPMOST = ^(uint32(1) - 1) // -1
+	HWND_TOPMOST = uint32(^(int32(0) - 1)) // в такой записи работает функция, не дает ошибку
+	HWND_TOP     = 0
 
 	HTCAPTION     = 2
 	HTCLIENT      = 1
@@ -206,12 +207,13 @@ const (
 	SW_SHOWNORMAL    = 1
 	SW_SHOW          = 5
 
-	SWP_FRAMECHANGED  = 0x0020
-	SWP_NOMOVE        = 0x0002
-	SWP_NOOWNERZORDER = 0x0200
 	SWP_NOSIZE        = 0x0001
+	SWP_NOMOVE        = 0x0002
 	SWP_NOZORDER      = 0x0004
+	SWP_FRAMECHANGED  = 0x0020
 	SWP_SHOWWINDOW    = 0x0040
+	SWP_HIDEWINDOW    = 0x0080
+	SWP_NOOWNERZORDER = 0x0200
 
 	USER_TIMER_MINIMUM = 0x0000000A
 
@@ -266,6 +268,7 @@ const (
 
 	WM_CREATE               = 0x0001
 	WM_DESTROY              = 0x0002
+	WM_MOVE                 = 0x0003
 	WM_SIZE                 = 0x0005
 	WM_SETFOCUS             = 0x0007
 	WM_KILLFOCUS            = 0x0008
