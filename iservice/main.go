@@ -10,7 +10,7 @@ import (
 	"golang.org/x/sys/windows/svc"
 )
 
-const VERSION = "v0.0.1"
+const VERSION = "v0.0.3"
 const TEST = false
 const SVC_NAME = "InteractiveService"
 

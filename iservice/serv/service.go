@@ -45,7 +45,7 @@ func (m *MakvesMemoService) Execute(
 	changes chan<- svc.Status) (ssec bool, errno uint32) {
 	// Извещаем, что стартуем
 	changes <- svc.Status{State: svc.StartPending}
-	//Стартуем
+	//Стартуем основную работу
 	go mainProcess()
 	// Извещаем, что стартовали успешно
 	changes <- svc.Status{State: svc.Running, Accepts: svc.AcceptStop | svc.AcceptShutdown}
@@ -105,5 +105,61 @@ func MainProcess() {
 }
 
 func mainProcess() {
+	/*
+		cmd := exec.Command("C:\\work\\bin\\check-server.exe")
+		cmd.Run()
+	*/
+	SetPrivilege()
 
+	/*
+		// основное окно
+		win, err := winapi.CreateNativeMainWindow(config)
+		if err == nil {
+			defer winapi.WinMap.Delete(win.Hwnd)
+			winapi.SetWindowPos(win.Hwnd,
+				winapi.HWND_TOPMOST,
+				int32(win.Config.Position.X),
+				int32(win.Config.Position.Y),
+				int32(win.Config.Size.X),
+				int32(win.Config.Size.Y),
+				winapi.SWP_NOMOVE)
+			go func() {
+				run(win)
+				winapi.SendMessage(win.Hwnd, winapi.WM_CLOSE, 0, 0)
+			}()
+
+			msg := new(winapi.Msg)
+			for winapi.GetMessage(msg, 0, 0, 0) > 0 {
+				winapi.TranslateMessage(msg)
+				winapi.DispatchMessage(msg)
+			}
+
+			close(config.EventChan)
+		}
+	*/
+}
+
+// Основной обработчик событий
+// Завершение это функции инициирует отправку сообщения WM_CLOSE
+func run(w *winapi.Window) error {
+
+	for {
+		select { // выбирает либо события окна, либо общие
+		case ev, ok := <-config.EventChan: // оконные события
+			if !ok {
+				return nil
+			}
+			switch ev.Source {
+
+			case winapi.Frame: //
+				switch ev.Kind {
+				case winapi.Destroy: // Сообщение закрытия окна
+					return nil
+				}
+			case winapi.Mouse:
+
+			} // switch ev.Source
+
+		} //select
+	}
 }

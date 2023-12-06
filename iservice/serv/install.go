@@ -55,7 +55,7 @@ func InstallService(name, desc string) error {
 	}
 	s, err = m.CreateService(name, exepath,
 		mgr.Config{
-			ServiceType:      uint32(0x10) | uint32(0x100),
+			ServiceType:      uint32(0x10) | uint32(0x100), //SERVICE_WIN_32_OWN_PROCESS  | SERVICE_INTERACTIVE PROCESS
 			ServiceStartName: "",
 			DisplayName:      desc,
 			Description:      desc,
