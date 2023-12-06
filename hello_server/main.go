@@ -4,11 +4,13 @@ import (
 	"context"
 	"fmt"
 	"hello_server/ws"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 )
 
 const Version = "0.1.10"
@@ -41,6 +43,16 @@ func main() {
 	srv.Addr = "192.168.88.240:8180"
 	srv.Handler = mux
 	srv.ListenAndServe()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Fatal("Server Shutdown:", err)
+	}
+	// catching ctx.Done(). timeout of 5 seconds.
+	select {
+	case <-ctx.Done():
+		log.Println("timeout of 5 seconds.")
+	}
 	fmt.Println("\nHTTP Server finished")
 }
 
