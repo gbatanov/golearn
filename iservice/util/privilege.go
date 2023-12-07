@@ -1,4 +1,4 @@
-package serv
+package util
 
 import (
 	"fmt"
@@ -74,22 +74,22 @@ func SetPrivilege() bool {
 
 	HWINSTA, err := GetProcessWindowStation()
 	if err != nil {
-		if test {
+		if Test {
 			log.Printf("-1. %s ", err.Error())
 		} else {
-			elog.Error(1, fmt.Sprintf("-1. %s ", err.Error()))
+			Elog.Error(1, fmt.Sprintf("-1. %s ", err.Error()))
 		}
 		return false
 	} else {
-		if test {
+		if Test {
 			log.Printf("-1. %v ", HWINSTA) //  handle to the window station
 		}
 		vis, err := GetUserObjectInformation(HWINSTA)
 		if err == nil {
-			if test {
+			if Test {
 				log.Printf("-2. %v ", vis)
 			} else {
-				elog.Info(1, fmt.Sprintf("-2. %v ", vis))
+				Elog.Info(1, fmt.Sprintf("-2. %v ", vis))
 			}
 		}
 	}
@@ -101,17 +101,18 @@ func SetPrivilege() bool {
 	var si syscall.StartupInfo
 	si.Cb = uint32(reflect.TypeOf(syscall.SecurityAttributes{}).Size())
 	si.Desktop = windows.StringToUTF16Ptr("Winsta0\\default")
-	si.Flags = windows.STARTF_USESTDHANDLES
+	si.Flags = windows.STARTF_USESTDHANDLES | windows.STARTF_USESHOWWINDOW
+
 	var hToken windows.Token
 
 	id := windows.WTSGetActiveConsoleSessionId()
 
 	err = windows.WTSQueryUserToken(uint32(id), &hToken)
 	if err != nil {
-		if test {
-			log.Printf("1. %s ", err.Error())
+		if Test {
+			log.Printf("1. ActiveConsoleSessionId: %d %s ", id, err.Error())
 		} else {
-			elog.Error(1, fmt.Sprintf("%s ", err.Error()))
+			Elog.Error(1, fmt.Sprintf("ActiveConsoleSessionId:%d %s ", id, err.Error()))
 		}
 		return false
 	}
@@ -119,8 +120,10 @@ func SetPrivilege() bool {
 	procHandle := windows.CurrentProcess()
 	pid, err := windows.GetProcessId(procHandle)
 	if err != nil {
-		if test {
+		if Test {
 			log.Printf("2. %s ", err.Error())
+		} else {
+			Elog.Error(1, fmt.Sprintf("2. %s ", err.Error()))
 		}
 		return false
 	}
@@ -128,8 +131,10 @@ func SetPrivilege() bool {
 	handle, err := windows.OpenProcess(syscall.PROCESS_QUERY_INFORMATION, false, uint32(pid))
 
 	if err != nil {
-		if test {
+		if Test {
 			log.Printf("3. %s ", err.Error())
+		} else {
+			Elog.Error(1, fmt.Sprintf("3. %s ", err.Error()))
 		}
 		return false
 	}
@@ -150,16 +155,21 @@ func SetPrivilege() bool {
 		&token)
 
 	if err != nil {
-		if test {
+		if Test {
 			log.Printf("4. %s ", err.Error())
+		} else {
+			Elog.Error(1, fmt.Sprintf("4. %s ", err.Error()))
 		}
 		return false
 	}
-	privS := "SeImpersonatePrivilege"
+	//	privS := "SeImpersonatePrivilege"
+	privS := "SeDebugPrivilege"
 	lpPrivName, err := syscall.UTF16PtrFromString(privS)
 	if err != nil {
-		if test {
+		if Test {
 			log.Printf("5. %s ", err.Error())
+		} else {
+			Elog.Error(1, fmt.Sprintf("5. %s ", err.Error()))
 		}
 		return false
 
@@ -167,8 +177,10 @@ func SetPrivilege() bool {
 	var luid windows.LUID
 	err = windows.LookupPrivilegeValue(nil, lpPrivName, &luid)
 	if err != nil {
-		if test {
+		if Test {
 			log.Printf("6. %s ", err.Error())
+		} else {
+			Elog.Error(1, fmt.Sprintf("6. %s ", err.Error()))
 		}
 		return false
 	}
@@ -186,8 +198,10 @@ func SetPrivilege() bool {
 		nil,
 		&returnlen)
 	if err != nil {
-		if test {
+		if Test {
 			log.Printf("7. %s ", err.Error())
+		} else {
+			Elog.Error(1, fmt.Sprintf("7. %s ", err.Error()))
 		}
 		return false
 	}

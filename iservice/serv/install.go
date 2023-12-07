@@ -12,6 +12,9 @@ import (
 	"golang.org/x/sys/windows/svc/mgr"
 )
 
+const SERVICE_WIN_32_OWN_PROCESS = uint32(0x10)
+const SERVICE_INTERACTIVE_PROCESS = uint32(0x100)
+
 func exePath() (string, error) {
 	prog := os.Args[0]
 	p, err := filepath.Abs(prog)
@@ -55,12 +58,12 @@ func InstallService(name, desc string) error {
 	}
 	s, err = m.CreateService(name, exepath,
 		mgr.Config{
-			ServiceType:      uint32(0x10) | uint32(0x100), //SERVICE_WIN_32_OWN_PROCESS  | SERVICE_INTERACTIVE PROCESS
+			ServiceType:      SERVICE_WIN_32_OWN_PROCESS | SERVICE_INTERACTIVE_PROCESS,
 			ServiceStartName: "",
 			DisplayName:      desc,
 			Description:      desc,
 			StartType:        mgr.StartAutomatic},
-		"is", "auto-started")
+		"as-service")
 	if err != nil {
 		return err
 	}

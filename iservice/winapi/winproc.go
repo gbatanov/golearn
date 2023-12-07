@@ -2,6 +2,7 @@ package winapi
 
 import (
 	"image"
+	"iservice/util"
 	"log"
 	"unicode"
 	"unsafe"
@@ -183,15 +184,17 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintptr
 		return 0
 
 	case WM_PAINT:
+		util.Elog.Info(1, "WM_PAINT")
 		w.draw(true)
 
 	case WM_MOVE:
+		util.Elog.Info(1, "WM_MOVE")
 		w.update()
 		w.draw(true)
 		return 0
 
 	case WM_SIZE:
-
+		util.Elog.Info(1, "WM_SIZE")
 		switch wParam {
 		case SIZE_MINIMIZED:
 			w.Config.Mode = Minimized

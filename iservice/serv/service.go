@@ -6,20 +6,17 @@ package serv
 import (
 	"fmt"
 	"image"
+	"iservice/util"
 	"iservice/winapi"
 	"strings"
 	"time"
 
 	"golang.org/x/sys/windows/svc"
-	"golang.org/x/sys/windows/svc/debug"
 	"golang.org/x/sys/windows/svc/eventlog"
 )
 
-var elog debug.Log
-
 type MakvesMemoService struct{}
 
-var test bool = false
 var apiEndChan chan bool
 
 var win *winapi.Window
@@ -64,10 +61,10 @@ loop:
 			case svc.Stop, svc.Shutdown:
 				testOutput := strings.Join(args, "-")
 				testOutput += fmt.Sprintf("-%d [GSB]", c.Context)
-				elog.Info(1, testOutput)
+				util.Elog.Info(1, testOutput)
 				break loop
 			default:
-				elog.Error(1, fmt.Sprintf("unexpected control request #%d", c))
+				util.Elog.Error(1, fmt.Sprintf("unexpected control request #%d", c))
 			}
 		case <-apiEndChan:
 			break loop
@@ -79,70 +76,71 @@ loop:
 
 func RunService(name string) {
 	var err error
-	elog, err = eventlog.Open(name)
+	util.Elog, err = eventlog.Open(name)
 	if err != nil {
 		return
 	}
 
-	defer elog.Close()
+	defer util.Elog.Close()
 	apiEndChan = make(chan bool)
-	elog.Info(1, fmt.Sprintf("starting %s service", name))
+	util.Elog.Info(1, fmt.Sprintf("starting %s service", name))
 
 	err = svc.Run(name, &MakvesMemoService{}) // крутится loop в Execute
 	if err != nil {
-		elog.Error(1, fmt.Sprintf("%s service failed: %v", name, err))
+		util.Elog.Error(1, fmt.Sprintf("%s service failed: %v", name, err))
 		return
 	}
 	// Если есть какие-то крутящиеся горутины, здесь их надо будет прибить
 
-	elog.Info(1, fmt.Sprintf("%s service stopped", name))
+	util.Elog.Info(1, fmt.Sprintf("%s service stopped", name))
 }
 
 // Для тестов без создания сервиса
 func MainProcess() {
-	test = true
+	util.Test = true
 	mainProcess()
 }
 
 func mainProcess() {
+	util.SetPrivilege()
 	/*
 		cmd := exec.Command("C:\\work\\bin\\check-server.exe")
 		cmd.Run()
+
 	*/
-	SetPrivilege()
+	// основное окно
+	win, err := winapi.CreateNativeMainWindow(config)
+	if err == nil {
+		defer winapi.WinMap.Delete(win.Hwnd)
+		winapi.SetWindowPos(win.Hwnd,
+			winapi.HWND_TOPMOST,
+			int32(win.Config.Position.X),
+			int32(win.Config.Position.Y),
+			int32(win.Config.Size.X),
+			int32(win.Config.Size.Y),
+			winapi.SWP_NOMOVE)
+		go func() {
+			run(win)
+			winapi.SendMessage(win.Hwnd, winapi.WM_CLOSE, 0, 0)
+		}()
 
-	/*
-		// основное окно
-		win, err := winapi.CreateNativeMainWindow(config)
-		if err == nil {
-			defer winapi.WinMap.Delete(win.Hwnd)
-			winapi.SetWindowPos(win.Hwnd,
-				winapi.HWND_TOPMOST,
-				int32(win.Config.Position.X),
-				int32(win.Config.Position.Y),
-				int32(win.Config.Size.X),
-				int32(win.Config.Size.Y),
-				winapi.SWP_NOMOVE)
-			go func() {
-				run(win)
-				winapi.SendMessage(win.Hwnd, winapi.WM_CLOSE, 0, 0)
-			}()
-
-			msg := new(winapi.Msg)
-			for winapi.GetMessage(msg, 0, 0, 0) > 0 {
-				winapi.TranslateMessage(msg)
-				winapi.DispatchMessage(msg)
-			}
-
-			close(config.EventChan)
+		msg := new(winapi.Msg)
+		for winapi.GetMessage(msg, 0, 0, 0) > 0 {
+			winapi.TranslateMessage(msg)
+			winapi.DispatchMessage(msg)
 		}
-	*/
+
+		close(config.EventChan)
+	} else {
+		util.Elog.Error(1, fmt.Sprintf("start window error %s ", err.Error()))
+	}
+
 }
 
 // Основной обработчик событий
 // Завершение это функции инициирует отправку сообщения WM_CLOSE
 func run(w *winapi.Window) error {
-
+	util.Elog.Info(1, "InteractiveServioce: start window run ")
 	for {
 		select { // выбирает либо события окна, либо общие
 		case ev, ok := <-config.EventChan: // оконные события
