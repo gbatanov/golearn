@@ -1,7 +1,9 @@
 package main
 
 import (
-	"image/color"
+	"image"
+
+	"context"
 	"net/http"
 	"net/url"
 	"os"
@@ -12,31 +14,73 @@ import (
 	"time"
 
 	"fyne.io/systray"
-	"gioui.org/app"
-	"gioui.org/font/gofont"
-	"gioui.org/io/key"
-	"gioui.org/io/system"
-	"gioui.org/layout"
-	"gioui.org/op"
-	"gioui.org/op/clip"
-	"gioui.org/op/paint"
-	"gioui.org/text"
-	"gioui.org/widget/material"
+
 	"git.makves.ru/test/check-server/img"
 	"git.makves.ru/test/check-server/pinger"
+	"git.makves.ru/test/check-server/winapi"
 )
 
-const VERSION = "v0.3.16"
+const VERSION = "v0.6.33"
 
-var server string = "192.168.76.106"
-var count = 3
-var period = 60 // seconds
+const COLOR_GREEN = 0x0011aa11
+const COLOR_RED = 0x000000c8
+const COLOR_YELLOW = 0x0000c8c8
+const COLOR_GRAYDE = 0x00dedede
+
+var COLOR_STATES map[int]uint32 = map[int]uint32{0: COLOR_RED, 1: COLOR_GREEN}
+
+const SERVER_MAX_COUNT = 8
+
+// Контролируемые сервера (дефолтный список, если нет файла с конфигурацией)
+var serverList []string = []string{"192.168.76.106"}
+
+const PINGER_COUNT = 4
+const PINGER_PERIOD = 60 // seconds
+// API телеграм-бота
 var tlgBotService = "http://192.168.76.95:8055/api/?"
+
+// Адрес, по которому долбится прометей
+var httpServer string = "192.168.76.95:8280"
+var srv http.Server      // Создаем переменную для HTTP-сервера
+var states map[int]int   // Состояния контролируемых серверов
+var oldState map[int]int // Предыдущее состояние сервера
+
 var quit chan os.Signal
-var stateChan chan bool
+var stateChan chan map[int]int
 var spinger *pinger.SPinger
 var err error
-var withCaption = true
+var flag = true
+
+var win *winapi.Window
+
+// Конфиг основного окна
+var config = winapi.Config{
+	Position:   image.Pt(-1, 10),
+	MaxSize:    image.Pt(240, 360),
+	MinSize:    image.Pt(240, 100),
+	Size:       image.Pt(240, 100),
+	Title:      "Доступность сервера",
+	EventChan:  make(chan winapi.Event, 256),
+	BorderSize: image.Pt(1, 1),
+	Mode:       winapi.Windowed,
+	BgColor:    COLOR_GRAYDE,
+	SysMenu:    false,
+}
+var labelConfig = winapi.Config{
+	Title:      "Child",
+	EventChan:  config.EventChan,
+	Size:       image.Pt(int(config.Size.X-10), int(30)),
+	MinSize:    config.MinSize,
+	MaxSize:    config.MaxSize,
+	Position:   image.Pt(int(18), int(15)),
+	Mode:       winapi.Windowed,
+	BorderSize: image.Pt(0, 0),
+	TextColor:  COLOR_YELLOW,
+	BgColor:    config.BgColor,
+	SysMenu:    false,
+}
+
+var NoClose = false
 
 func init() {
 }
@@ -46,155 +90,189 @@ func main() {
 	quit = make(chan os.Signal)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM, syscall.SIGABRT)
 
-	stateChan = make(chan bool, 1)
-	spinger, err = pinger.NewPinger(server, count, period, stateChan)
-	if err != nil {
-		panic(err)
-	}
-	// основное окно
-	go func() {
-		var w *app.Window
-		// app.Decorated(false) - выводит окно без Caption
+	err = getConfig()
 
-		w = app.NewWindow(
-			app.Title("Server state"),
-			app.Size(240, 80),
-			app.MaxSize(240, 80),
-			app.MinSize(240, 80),
-			app.Decorated(withCaption))
-
-		//		w.Perform(system.ActionMinimize) // сворачивает окно
-		err := run(w)
-		if err != nil {
-			panic(err)
-		}
-		os.Exit(0)
-	}()
+	// пингер
+	oldState = make(map[int]int, SERVER_MAX_COUNT) // Предыдущее состояние сервера
+	states = make(map[int]int, SERVER_MAX_COUNT)
+	stateChan = make(chan map[int]int, 1)
 
 	// systray
 	go func() {
 		systray.Run(onReady, onExit)
-		if spinger.Flag {
-			spinger.Stop()
-		}
 	}()
 
-	// pinger
-	spinger.Run()
-	// Запуск основного окна
-	app.Main()
+	// http-server для отдачи метрики
+	go func() {
+		// Создаем маршрутизатор
+		mux := http.NewServeMux()
+		// Наполняем его обрабатываемыми маршрутами
+		mux.HandleFunc("/metrics", metrics)
+		srv.Addr = httpServer
+		srv.Handler = mux
+		srv.ListenAndServe()
+	}()
+
+	for {
+		NoClose = false
+		createTask()
+		if !NoClose {
+			break
+		}
+	}
+	srv.Shutdown(context.Background())
+
+	close(config.EventChan)
 }
 
-func run(w *app.Window) error {
-	var msgSent = false // Сообщение уже отправлено
-	var oldState = 1    // Предыдущее состояние сервера
-	var ops op.Ops
-	var title material.LabelStyle // Текст в окне (IP сервера)
+func recreateTask() {
+	NoClose = true
+	winapi.SendMessage(win.Hwnd, winapi.WM_CLOSE, 0, 0)
+}
 
-	th := material.NewTheme()
-	th.Shaper = text.NewShaper(text.WithCollection(gofont.Collection()))
-	th.Bg.A = 255
-	th.Bg.B = 255
-	th.Bg.R = 0
-	th.Bg.G = 0
+func createTask() {
 
-	// Цвета IP сервера
-	green := color.NRGBA{R: 0, G: 200, B: 0, A: 255}    // норма
-	red := color.NRGBA{R: 200, G: 0, B: 0, A: 255}      // авария
-	yellow := color.NRGBA{R: 200, G: 200, B: 0, A: 255} // при старте до получения реального
-	titleColor := yellow
+	spinger, err = pinger.NewPinger(serverList, PINGER_COUNT, PINGER_PERIOD, stateChan)
+	if err != nil {
+		panic(err)
+	}
+
+	// основное окно
+	win, err = winapi.CreateNativeMainWindow(config)
+	if err == nil {
+		defer winapi.WinMap.Delete(win.Hwnd)
+
+		Reconfig()
+
+		// pinger
+		go spinger.Run()
+		// Обработчик событий
+		go func() {
+			run(win)
+			if spinger.Flag {
+				spinger.Stop()
+			}
+			winapi.SendMessage(win.Hwnd, winapi.WM_CLOSE, 0, 0)
+		}()
+
+		msg := new(winapi.Msg)
+		for flag && (winapi.GetMessage(msg, 0, 0, 0) > 0) {
+			winapi.TranslateMessage(msg)
+			winapi.DispatchMessage(msg)
+		}
+
+	} else {
+		panic(err)
+	}
+
+}
+
+// Отдаем текущее состояние контролируемого сервера
+func metrics(w http.ResponseWriter, r *http.Request) {
+	var sout string = ""
+
+	for _, w := range win.Childrens {
+		_, exists := states[int(w.Id)]
+		if exists {
+			fState := 0.0
+			if states[int(w.Id)] == 1 {
+				fState = float64(states[int(w.Id)]) - float64(0.1*float64(w.Id))
+			} else if states[int(w.Id)] == 0 {
+				fState = float64(states[int(w.Id)]) + float64(0.1*float64(w.Id))
+			}
+			sout += "alive{sname=\"" + w.Config.Title + "\"} " + strconv.FormatFloat(fState, 'f', 3, 32) + "\n"
+		} else {
+			continue
+		}
+	}
+	if sout == "" {
+		w.Write([]byte(""))
+		return
+	}
+
+	w.Write([]byte(sout))
+}
+
+// Добавление строки с IP контролируемого сервера
+func AddLabel(win *winapi.Window, lblConfig winapi.Config, id int) error {
+
+	lblConfig.Position.Y = 10 + (lblConfig.Size.Y)*(id)
+	chWin, err := winapi.CreateLabel(win, lblConfig, id)
+	if err == nil {
+		winapi.WinMap.Store(chWin.Hwnd, chWin)
+		defer winapi.WinMap.Delete(chWin.Hwnd)
+		win.Childrens = append(win.Childrens, chWin)
+
+		return nil
+	}
+	return err
+}
+
+// Основной обработчик событий
+// Завершение это функции инициирует отправку сообщения WM_CLOSE
+func run(w *winapi.Window) error {
+
+	for i := range serverList {
+		oldState[i] = -1
+		w.Childrens[i].Config.TextColor = COLOR_YELLOW
+	}
 
 	for {
 		select { // выбирает либо события окна, либо общие
-		case e := <-w.Events():
-			switch e := e.(type) {
-			case system.DestroyEvent:
-				if spinger.Flag {
-					spinger.Stop()
-				}
-				return e.Err
-			case system.FrameEvent: //
-				gtx := layout.NewContext(&ops, e)
-
-				if titleColor == green {
-					paint.Fill(&ops, color.NRGBA{R: 128, G: 128, B: 20, A: 128})
-				} else if titleColor == red {
-					paint.Fill(&ops, color.NRGBA{R: 0, G: 128, B: 0, A: 128})
-				} else {
-					paint.Fill(&ops, color.NRGBA{R: 128, G: 128, B: 128, A: 128})
-				}
-				// register a global key listener for the escape key wrapping our entire UI.
-				area := clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops)
-				key.InputOp{
-					Tag:  w,
-					Keys: key.NameEscape,
-				}.Add(gtx.Ops)
-
-				// Выход из программы по Escape
-				for _, event := range gtx.Events(w) {
-					switch event := event.(type) {
-					case key.Event:
-						if event.Name == key.NameEscape {
-							return nil
-						}
-					}
-				}
-				// render and handle UI.
-				area.Pop()
-				title = material.H1(th, "192.168.76.106")
-				title.Color = titleColor
-				title.Alignment = text.Middle
-				title.TextSize = 28.0
-				title.Font.Weight = 400
-				// paddings
-				inset := layout.Inset{Top: 20, Bottom: 8, Left: 8, Right: 8}
-				inset.Layout(gtx, title.Layout)
-
-				e.Frame(gtx.Ops)
-
-			}
-
-		case <-quit:
-			return nil
-		case state, ok := <-stateChan:
+		case ev, ok := <-config.EventChan: // оконные события
 			if !ok {
 				return nil
 			}
-			if state {
-				titleColor = green
+			switch ev.Source {
 
-				w.Invalidate()
-				if oldState == 0 {
-					oldState = 1
-					sendMsg(state)
+			case winapi.Frame: //
+				switch ev.Kind {
+				case winapi.Destroy: // Сообщение закрытия окна
+					return nil
 				}
-				msgSent = false
-				if len(img.OkIco) > 0 {
-					systray.SetIcon(img.OkIco)
-				}
-			} else {
-				titleColor = red
-				w.Invalidate()
-				if oldState == 1 {
-					oldState = 0
-					if !msgSent {
-						msgSent = sendMsg(state)
-					}
-					if len(img.ErrIco) > 0 {
-						systray.SetIcon(img.ErrIco)
+			case winapi.Mouse:
+
+			} // switch ev.Source
+
+		case <-quit: // сообщение при закрытии трея
+			return nil
+
+		case stateIn, ok := <-stateChan: // сообщение от пингера
+			if !ok {
+				return nil
+			}
+
+			for id, state := range stateIn {
+				if state == 0 || state == 1 {
+					states[id] = state
+					w.Childrens[id].Config.TextColor = COLOR_STATES[state]
+
+					if oldState[id] != state {
+						oldState[id] = state
+						// одноразовое сообщение в телеграм
+						sendMsgTlg(w.Childrens[id].Config.Title, state)
+
+						if len(img.OkIco) > 0 && len(img.ErrIco) > 0 {
+							if state == 1 {
+								systray.SetIcon(img.OkIco)
+							} else {
+								systray.SetIcon(img.ErrIco)
+							}
+						}
 					}
 				}
 			}
-
+			w.Invalidate()
 		} //select
 	}
 }
 
+// трей готов к работе
 func onReady() {
 
 	if len(img.ErrIco) > 0 {
 		systray.SetIcon(img.ErrIco)
-		systray.SetTooltip("Check Server Health")
+		systray.SetTooltip("Состояние сервера")
 	}
 	systray.SetTitle("Check Server")
 	mQuit := systray.AddMenuItem("Quit", "Выход")
@@ -203,23 +281,55 @@ func onReady() {
 		<-mQuit.ClickedCh
 		systray.Quit()
 	}()
-
+	systray.AddSeparator()
+	mReconfig := systray.AddMenuItem("Reconfig", "Перечитать конфиг")
+	mReconfig.Enable()
+	go func() {
+		for flag {
+			<-mReconfig.ClickedCh
+			res := getConfig()
+			if res != nil {
+				mReconfig.Disable()
+			} else {
+				recreateTask()
+			}
+		}
+	}()
 }
 
+// Обработчик завершения трея
 func onExit() {
 	quit <- syscall.SIGTERM
+	flag = false
 }
 
-// Send message to telegram
-func sendMsg(state bool) bool {
+// Читаем конфиг из файла
+func getConfig() error {
+
+	info, err := os.ReadFile("config.conf")
+	if err != nil || len(info) < 7 {
+		return err
+	}
+	infoS := string(info)
+	infoS = strings.ReplaceAll(infoS, " ", "")
+	infoS = strings.ReplaceAll(infoS, "\r", "\n")
+	infoS = strings.ReplaceAll(infoS, "\n\n", "\n")
+	infoS = strings.Trim(infoS, "\n ")
+	serverList = strings.Split(infoS, "\n")
+
+	return nil
+}
+
+// Отправка сообщения в телеграм  через внутренний сервис отправки телеграм-сообщений
+func sendMsgTlg(checkServer string, state int) bool {
 	client := http.Client{}
 	client.Timeout = 10 * time.Second
 
 	params := url.Values{}
-	if state {
-		params.Add("msg", server+" ok")
+	if state == 1 {
+		params.Add("msg", checkServer+" ok")
 	} else {
-		params.Add("msg", server+" invalid")
+		params.Add("msg", checkServer+" invalid")
 	}
 	encodedData := params.Encode()
 	body := strings.NewReader(encodedData)
@@ -234,4 +344,25 @@ func sendMsg(state bool) bool {
 		return false
 	}
 	return true
+}
+
+// Конфигурируем окно по конфигу
+func Reconfig() {
+
+	for id, title := range serverList {
+		labelConfig.Title = title
+		AddLabel(win, labelConfig, id)
+	}
+	win.Config.Size.Y = labelConfig.Size.Y * (len(serverList) + 2)
+	win.Config.MinSize.Y = win.Config.Size.Y
+	win.Config.MaxSize.Y = win.Config.Size.Y
+
+	winapi.SetWindowPos(win.Hwnd,
+		winapi.HWND_TOPMOST,
+		int32(win.Config.Position.X),
+		int32(win.Config.Position.Y),
+		int32(win.Config.Size.X),
+		int32(win.Config.Size.Y),
+		winapi.SWP_NOMOVE)
+	win.Invalidate()
 }
