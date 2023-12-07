@@ -2,6 +2,8 @@
 
 Попытка создать интерактивный сервис на Windows
 
+Upd. Похоже, это нереализуемый проект в последних версиях Windows ((.
+
 ```
 SeAssignPrimaryTokenPrivilege
 SeTcbPrivilege
