@@ -10,19 +10,21 @@ import (
 )
 
 // Основной обработчик событий главного окна
-func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintptr {
+func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) int {
 	win, exists := WinMap.Load(hwnd)
 	if !exists {
+		// Эти сообщения появляются еще до создания окна, поэтому его нет в WinMap!!!
+		if msg == WM_CREATE {
+			return 0 // Если вернуть -1 - окно не создается
+		} else if msg == WM_NCCREATE {
+			return 1 // Если вернуть 0 - окно не создается
+		}
 		return DefWindowProc(hwnd, msg, wParam, lParam)
 	}
 
 	w := win.(*Window)
 
 	switch msg {
-	case WM_NCCREATE:
-		panic("Main WM_NCCREATE")
-	case WM_CREATE:
-		panic("Main WM_CREATE")
 	case WM_DESTROY:
 		w.Config.EventChan <- Event{
 			SWin:   w,
@@ -250,7 +252,7 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintptr
 		SetBkColor(syscall.Handle(wParam), wc.Config.BgColor)       // цвет подложки текста
 		hbrBkgnd, err := CreateSolidBrush(int32(wc.Config.BgColor)) // цвет заливки окна
 		if err == nil {
-			return uintptr(hbrBkgnd)
+			return int(hbrBkgnd)
 		}
 	case WM_COMMAND:
 		log.Printf("WM_COMMAND 0x%08x 0x%08x \n", wParam, lParam)
@@ -275,6 +277,7 @@ func (w *Window) HandleButton(w2 *Window, wParam uintptr) {
 	case IDOK:
 		log.Println(w2.Config.Title)
 		// И какие-то действия
+
 	case IDCANCEL:
 		log.Println(w2.Config.Title)
 		// И какие-то действия

@@ -504,9 +504,9 @@ func CreateWindowEx(dwExStyle uint32, lpClassName string, lpWindowName string, d
 	return syscall.Handle(hwnd), nil
 }
 
-func DefWindowProc(hwnd syscall.Handle, msg uint32, wparam, lparam uintptr) uintptr {
+func DefWindowProc(hwnd syscall.Handle, msg uint32, wparam, lparam uintptr) int {
 	r, _, _ := _DefWindowProc.Call(uintptr(hwnd), uintptr(msg), wparam, lparam)
-	return r
+	return int(r)
 }
 
 func DestroyWindow(hwnd syscall.Handle) {
