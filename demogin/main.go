@@ -17,7 +17,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-const VERSION = "0.0.9"
+const VERSION = "0.0.10"
 const SERVER = "192.168.76.95:8089"
 
 // Пример встраивания целой папки в переменную
@@ -30,6 +30,8 @@ var f embed.FS
 //go:embed README.md
 var readme string
 
+// Пример встраивания картинки в байтовый слайс
+//
 //go:embed html/img/fav32.png
 var icon []byte
 
@@ -76,7 +78,7 @@ func main() {
 		//
 	*/
 	//router.StaticFS("/css", http.FS(f)) // Не заработало /html /html/css /css
-	router.StaticFS("/css", gin.Dir("html/css", false)) // так работает, но это не embed?
+	router.StaticFS("/css", gin.Dir("html/css", false)) // так работает, но это не embed
 	//router.Static("/css", ".\\html\\css") // так работает
 
 	// картинка
@@ -95,7 +97,7 @@ func main() {
 	actionSrv := NewActionHandler()
 
 	router.GET("/ping", actionSrv.ping)
-	router.GET("/cmd", actionSrv.cmdHandler)
+	router.GET("/cmnd", actionSrv.cmdHandler)
 	router.GET("/", actionSrv.mainPage)
 
 	// Кастомный логгер

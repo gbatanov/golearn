@@ -82,9 +82,6 @@ var labelConfig = winapi.Config{
 
 var NoClose = false
 
-func init() {
-}
-
 func main() {
 
 	quit = make(chan os.Signal)

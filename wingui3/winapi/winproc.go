@@ -89,6 +89,7 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintptr
 	case WM_MBUTTONUP:
 		w.pointerButton(ButtonTertiary, false, lParam, getModifiers())
 	case WM_CANCELMODE:
+		log.Println("Cancel")
 		//		w.w.Event( Event{
 		//			Kind:  Cancel,
 		//		})
@@ -107,6 +108,7 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintptr
 		}
 	case WM_KILLFOCUS:
 		// Щелчок вне нашего окна
+		// Щелчок по кнопке тоже дает это событие
 		w.Focused = false
 		w.Config.EventChan <- Event{
 			SWin:      w,
@@ -212,11 +214,10 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintptr
 		mm := (*MinMaxInfo)(unsafe.Pointer(uintptr(lParam)))
 		var bw, bh int32 = 0, 0
 		//		if w.Config.Decorated {
-		// Этот код дает косяки в отрисовке окна при перемещении
-		//	r := GetWindowRect(w.Hwnd)
-		//	cr := GetClientRect(w.Hwnd)
-		//	bw = r.Right - r.Left - (cr.Right - cr.Left)
-		//	bh = r.Bottom - r.Top - (cr.Bottom - cr.Top)
+		r := GetWindowRect(w.Hwnd)
+		cr := GetClientRect(w.Hwnd)
+		bw = r.Right - r.Left - (cr.Right - cr.Left)
+		bh = r.Bottom - r.Top - (cr.Bottom - cr.Top)
 		//		}
 		if p := w.Config.MinSize; p.X > 0 || p.Y > 0 {
 			mm.PtMinTrackSize = Point{
@@ -239,22 +240,36 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintptr
 			return TRUE
 		}
 
-		/*	// Установка параметров текста для статических элементов окна
-			case WM_CTLCOLORSTATIC:
+	// Установка параметров текста для статических элементов окна
+	case WM_CTLCOLORSTATIC:
 
-				wc := w.Childrens[1]
-				log.Println(wc.Hdc, syscall.Handle(wParam))
+		wc := w.Childrens[1]
+		log.Println(wc.Hdc, syscall.Handle(wParam))
 
-				SetTextColor(syscall.Handle(wParam), wc.Config.TextColor)   // цвет самого теста
-				SetBkColor(syscall.Handle(wParam), wc.Config.BgColor)       // цвет подложки текста
-				hbrBkgnd, err := CreateSolidBrush(int32(wc.Config.BgColor)) // цвет заливки окна
-				if err == nil {
-					return uintptr(hbrBkgnd)
-				}
-		*/
+		SetTextColor(syscall.Handle(wParam), wc.Config.TextColor)   // цвет самого теста
+		SetBkColor(syscall.Handle(wParam), wc.Config.BgColor)       // цвет подложки текста
+		hbrBkgnd, err := CreateSolidBrush(int32(wc.Config.BgColor)) // цвет заливки окна
+		if err == nil {
+			return uintptr(hbrBkgnd)
+		}
+	case WM_COMMAND:
+		// в lParam приходит Handle окна кнопки
+		win2, exists := WinMap.Load(syscall.Handle(lParam))
+		if exists {
+			w2 := win2.(*Window)
+			if w2.Config.Class == "Button" {
+				w.HandleButton(w2)
+				return 0 // если мы обрабатываем, должны вернуть 0
+			}
+		}
 	}
 
 	return DefWindowProc(hwnd, msg, wParam, lParam)
+}
+
+// ----------------------------------------
+func (w *Window) HandleButton(w2 *Window) {
+	log.Println(w2.Config.Title)
 }
 
 // hitTest returns the non-client area hit by the point, needed to
@@ -310,28 +325,71 @@ func (w *Window) draw(sync bool) {
 
 	r1 := GetClientRect(w.Hwnd)
 	hbrBkgnd, _ := CreateSolidBrush(int32(w.Config.BgColor))
-	// Fill the region Main window
 	FillRect(w.Hdc, &r1, hbrBkgnd)
 
-	// Отрисовка текста в статических дочерних окнах
-	for _, w2 := range w.Childrens { // Ключом будет ChildId
-		var ps PAINTSTRUCT = PAINTSTRUCT{}
-		BeginPaint(w2.Hwnd, &ps)
-		hFont := CreateFont(28, 12, 0, 0, 0,
-			0, 0, 0,
-			DEFAULT_CHARSET,
-			0, 0, 0, 0,
-			syscall.StringToUTF16Ptr("Tahoma"))
-
-		oldFont := SelectObject(w2.Hdc, hFont)
-		SetTextColor(w2.Hdc, w2.Config.TextColor) // цвет самого теста
-		SetBkColor(w2.Hdc, w2.Config.BgColor)     // цвет подложки текста
-		txt := w2.Config.Title
-		TextOut(w2.Hdc, 0, 0, &txt, int32(len(txt)))
-		SelectObject(w2.Hdc, oldFont)
-
-		EndPaint(w2.Hwnd, &ps)
+	// Отрисовка текста и фона в статических дочерних окнах
+	for _, w2 := range w.Childrens {
+		switch w2.Config.Class {
+		case "Static":
+			w.drawStaticText(w2)
+		case "Button":
+			InvalidateRect(w2.Hwnd, nil, 1)
+			UpdateWindow(w2.Hwnd)
+			//		w.drawButton(w2)
+		}
 	}
+}
+
+func (w *Window) drawStaticText(w2 *Window) {
+	r1 := GetClientRect(w2.Hwnd)
+	hbrBkgnd, _ := CreateSolidBrush(int32(w2.Config.BgColor))
+	FillRect(w2.Hdc, &r1, hbrBkgnd)
+
+	var ps PAINTSTRUCT = PAINTSTRUCT{}
+	BeginPaint(w2.Hwnd, &ps)
+	fontSize := w2.Config.FontSize
+	hFont := CreateFont(fontSize, int32(float32(fontSize)*0.4), 0, 0, 0,
+		0, 0, 0,
+		DEFAULT_CHARSET,
+		0, 0, 0, 0,
+		syscall.StringToUTF16Ptr("Tahoma"))
+
+	oldFont := SelectObject(w2.Hdc, hFont)
+	SetTextColor(w2.Hdc, w2.Config.TextColor) // цвет самого текста
+	SetBkColor(w2.Hdc, w2.Config.BgColor)     // цвет подложки текста
+	txt := w2.Config.Title
+	left := int32(4) // TODO: для кнопок отцентровать
+	top := int32(2)
+	TextOut(w2.Hdc, left, top, &txt, int32(len(txt)))
+	SelectObject(w2.Hdc, oldFont)
+
+	EndPaint(w2.Hwnd, &ps)
+}
+
+func (w *Window) drawButton(w2 *Window) {
+	r1 := GetClientRect(w2.Hwnd)
+	hbrBkgnd, _ := CreateSolidBrush(int32(w2.Config.BgColor))
+	FillRect(w2.Hdc, &r1, hbrBkgnd)
+
+	var ps PAINTSTRUCT = PAINTSTRUCT{}
+	BeginPaint(w2.Hwnd, &ps)
+	fontSize := w2.Config.FontSize
+	hFont := CreateFont(fontSize, int32(float32(fontSize)*0.4), 0, 0, 0,
+		0, 0, 0,
+		DEFAULT_CHARSET,
+		0, 0, 0, 0,
+		syscall.StringToUTF16Ptr("Tahoma"))
+
+	oldFont := SelectObject(w2.Hdc, hFont)
+	SetTextColor(w2.Hdc, w2.Config.TextColor) // цвет самого текста
+	SetBkColor(w2.Hdc, w2.Config.BgColor)     // цвет подложки текста
+	txt := w2.Config.Title
+	left := int32(4) // TODO: для кнопок отцентровать
+	top := int32(2)
+	TextOut(w2.Hdc, left, top, &txt, int32(len(txt)))
+	SelectObject(w2.Hdc, oldFont)
+
+	EndPaint(w2.Hwnd, &ps)
 }
 
 // update() handles changes done by the user, and updates the configuration.

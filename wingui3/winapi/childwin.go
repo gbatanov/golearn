@@ -2,11 +2,16 @@ package winapi
 
 // Label
 func CreateLabel(parent *Window, config Config, id int) (*Window, error) {
-	return CreateChildWindow(parent, config, "Static", id)
+	return CreateChildWindow(parent, config, id)
+}
+
+// Button
+func CreateButton(parent *Window, config Config, id int) (*Window, error) {
+	return CreateChildWindow(parent, config, id)
 }
 
 // Создаем статическое окно
-func CreateChildWindow(parent *Window, config Config, class string, id int) (*Window, error) {
+func CreateChildWindow(parent *Window, config Config, id int) (*Window, error) {
 
 	var dwStyle uint32 = WS_CHILD | WS_VISIBLE
 	if config.BorderSize.X > 0 {
@@ -15,7 +20,7 @@ func CreateChildWindow(parent *Window, config Config, class string, id int) (*Wi
 
 	hwnd, err := CreateWindowEx(
 		0,
-		class,                                              // resourceChild.class, //lpClassName
+		config.Class,                                       // standard static class,
 		config.Title,                                       // lpWindowName
 		dwStyle,                                            //dwStyle
 		int32(config.Position.X), int32(config.Position.Y), //x, y
@@ -40,6 +45,7 @@ func CreateChildWindow(parent *Window, config Config, class string, id int) (*Wi
 		return nil, err
 	}
 	w.SetCursor(CursorDefault)
+	WinMap.Store(w.Hwnd, w)
 
 	return w, nil
 }

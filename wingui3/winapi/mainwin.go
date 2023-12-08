@@ -22,7 +22,7 @@ const (
 	StageRunning
 )
 
-// winMap maps win32 HWNDs to *
+// winMap maps win32 HWNDs to *Window
 var WinMap sync.Map
 
 type WindowMode uint8
@@ -49,11 +49,13 @@ type Config struct {
 	EventChan  chan Event
 	BorderSize image.Point
 	TextColor  uint32
+	FontSize   int32
 	BgColor    uint32
+	Class      string
 }
 
 type Window struct {
-	Id          int32 // 0 у главного, начиная с 0 у дочерних
+	Id          int32
 	Hwnd        syscall.Handle
 	Hdc         syscall.Handle
 	HInst       syscall.Handle
@@ -83,7 +85,7 @@ var resources struct {
 }
 
 // initResources initializes the resources global.
-func initResources(child bool) error {
+func initResources() error {
 	SetProcessDPIAware()
 	hInst, err := GetModuleHandle()
 	if err != nil {
@@ -124,7 +126,7 @@ func CreateNativeMainWindow(config Config) (*Window, error) {
 
 	var resErr error
 	resources.once.Do(func() {
-		resErr = initResources(false)
+		resErr = initResources()
 	})
 	if resErr != nil {
 		return nil, resErr
@@ -137,7 +139,7 @@ func CreateNativeMainWindow(config Config) (*Window, error) {
 
 	hwnd, err := CreateWindowEx(
 		dwExStyle,
-		"GsbWindow",                                        //	resourceMain.class,                                 //lpClassame
+		config.Class,                                       //	resourceMain.class,                                 //lpClassame
 		config.Title,                                       // lpWindowName
 		dwStyle,                                            //dwStyle
 		int32(config.Position.X), int32(config.Position.Y), //x, y

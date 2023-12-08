@@ -8,7 +8,14 @@ import (
 	"github.com/gbatanov/golearn/wingui3/winapi"
 )
 
-const VERSION = "v0.0.18"
+const VERSION = "v0.0.19"
+
+const COLOR_GREEN = 0x0011aa11
+const COLOR_RED = 0x000000c8
+const COLOR_YELLOW = 0x0000c8c8
+const COLOR_GRAYDE = 0x00dedede
+const COLOR_GRAYBC = 0x00bcbcbc
+const COLOR_GRAYAA = 0x00aaaaaa
 
 var mouseX, mouseY int = 0, 0
 var serverList []string = []string{"192.168.76.106", "192.168.76.80"}
@@ -23,19 +30,35 @@ var config = winapi.Config{
 	EventChan:  make(chan winapi.Event, 256),
 	BorderSize: image.Pt(1, 1),
 	Mode:       winapi.Windowed,
-	BgColor:    0x00dedede,
+	BgColor:    COLOR_GRAYDE,
+	SysMenu:    true,
+	Class:      "GsbWindow",
 }
 var labelConfig = winapi.Config{
-	Title:      "Child",
+	Title:      "Static",
 	EventChan:  config.EventChan,
-	Size:       image.Pt(int(config.Size.X-10), int(30)),
+	Size:       image.Pt(int(config.Size.X-50), int(30)),
 	MinSize:    config.MinSize,
 	MaxSize:    config.MaxSize,
 	Position:   image.Pt(int(18), int(15)),
 	Mode:       winapi.Windowed,
 	BorderSize: image.Pt(0, 0),
-	TextColor:  0x0011aa11,
-	BgColor:    config.BgColor,
+	TextColor:  COLOR_GREEN,
+	FontSize:   28,
+	BgColor:    COLOR_GRAYBC,
+	Class:      "Static",
+}
+var btnConfig = winapi.Config{
+	Class:      "Button",
+	Title:      "Ok",
+	EventChan:  config.EventChan,
+	Size:       image.Pt(int(40), int(25)),
+	Position:   image.Pt(int(18), int(15)),
+	Mode:       winapi.Windowed,
+	BorderSize: image.Pt(1, 1),
+	TextColor:  COLOR_GREEN,
+	FontSize:   16,
+	BgColor:    COLOR_GRAYAA,
 }
 
 func main() {
@@ -64,7 +87,26 @@ func main() {
 			labelConfig.Title = title
 			AddLabel(win, labelConfig, id)
 		}
-		win.Config.Size.Y = labelConfig.Size.Y * (len(serverList) + 2)
+
+		// Button
+		id := len(serverList)
+		btnConfig1 := btnConfig
+		btnConfig1.Position.Y = 20 + (labelConfig.Size.Y)*(id)
+		AddButton(win, btnConfig1, id)
+
+		id++
+		btnConfig2 := btnConfig
+		btnConfig2.Title = "Cancel"
+		btnConfig2.Position.Y = btnConfig1.Position.Y
+		btnConfig2.Position.X = btnConfig1.Position.X + btnConfig1.Size.X + 10
+		btnConfig2.Size.X = 60
+		AddButton(win, btnConfig2, id)
+
+		for _, w2 := range win.Childrens {
+			defer winapi.WinMap.Delete(w2.Hwnd)
+		}
+
+		win.Config.Size.Y = btnConfig1.Position.Y + btnConfig1.Size.Y + 5
 		win.Config.MinSize.Y = win.Config.Size.Y
 		win.Config.MaxSize.Y = win.Config.Size.Y
 
@@ -95,8 +137,17 @@ func AddLabel(win *winapi.Window, lblConfig winapi.Config, id int) error {
 	lblConfig.Position.Y = 10 + (lblConfig.Size.Y)*(id)
 	chWin, err := winapi.CreateLabel(win, lblConfig, id)
 	if err == nil {
-		winapi.WinMap.Store(chWin.Hwnd, chWin)
-		defer winapi.WinMap.Delete(chWin.Hwnd)
+		win.Childrens[id] = chWin
+
+		return nil
+	}
+	return err
+}
+
+func AddButton(win *winapi.Window, btnConfig winapi.Config, id int) error {
+
+	chWin, err := winapi.CreateLabel(win, btnConfig, id)
+	if err == nil {
 		win.Childrens[id] = chWin
 
 		return nil

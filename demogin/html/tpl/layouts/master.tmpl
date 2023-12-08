@@ -2,12 +2,12 @@
 <html>
     <head>
         <title>{{.title}}</title>
-        {{template "head" .}}
+        {{template "head" .}}{{/* блок head из index.tmpl */}}
     </head>
 
     <body>
-        {{template "content" .}}
+        {{template "content" .}}{{/* блок content из index.tmpl */}}
         <hr>
-        {{include "layouts/footer"}}
+        {{include "layouts/footer"}}{{/* содержимое из шаблона layouts/footer.tmpl */}}
     </body>
 </html>
