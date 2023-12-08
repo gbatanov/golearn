@@ -8,7 +8,7 @@ import (
 	"github.com/gbatanov/golearn/wingui3/winapi"
 )
 
-const VERSION = "v0.0.19"
+const VERSION = "v0.0.20"
 
 const COLOR_GREEN = 0x0011aa11
 const COLOR_RED = 0x000000c8
@@ -45,7 +45,7 @@ var labelConfig = winapi.Config{
 	BorderSize: image.Pt(0, 0),
 	TextColor:  COLOR_GREEN,
 	FontSize:   28,
-	BgColor:    COLOR_GRAYBC,
+	BgColor:    config.BgColor,
 	Class:      "Static",
 }
 var btnConfig = winapi.Config{

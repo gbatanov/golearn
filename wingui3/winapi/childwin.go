@@ -1,5 +1,10 @@
 package winapi
 
+import "golang.org/x/sys/windows"
+
+const IDC_BUTTON_OK = 100
+const IDC_BUTTON_CANCEL = 101
+
 // Label
 func CreateLabel(parent *Window, config Config, id int) (*Window, error) {
 	return CreateChildWindow(parent, config, id)
@@ -17,7 +22,14 @@ func CreateChildWindow(parent *Window, config Config, id int) (*Window, error) {
 	if config.BorderSize.X > 0 {
 		dwStyle |= WS_BORDER
 	}
-
+	var hMenu windows.Handle = 0
+	if config.Class == "Button" {
+		if config.Title == "Ok" {
+			hMenu = windows.Handle(IDC_BUTTON_OK)
+		} else if config.Title == "Cancel" {
+			hMenu = windows.Handle(IDC_BUTTON_CANCEL)
+		}
+	}
 	hwnd, err := CreateWindowEx(
 		0,
 		config.Class,                                       // standard static class,
@@ -26,7 +38,7 @@ func CreateChildWindow(parent *Window, config Config, id int) (*Window, error) {
 		int32(config.Position.X), int32(config.Position.Y), //x, y
 		int32(config.Size.X), int32(config.Size.Y), //w, h
 		parent.Hwnd,  //hWndParent
-		0,            // hMenu
+		hMenu,        // hMenu
 		parent.HInst, //hInstance
 		0)            // lpParam
 	if err != nil {

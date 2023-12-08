@@ -253,12 +253,14 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintptr
 			return uintptr(hbrBkgnd)
 		}
 	case WM_COMMAND:
-		// в lParam приходит Handle окна кнопки
-		win2, exists := WinMap.Load(syscall.Handle(lParam))
-		if exists {
-			w2 := win2.(*Window)
-			if w2.Config.Class == "Button" {
-				w.HandleButton(w2)
+		log.Printf("WM_COMMAND 0x%08x 0x%08x \n", wParam, lParam)
+		// Если мы прописали ID кнопки в качестве hMenu, то в wParam придет этот код
+		if wParam == IDC_BUTTON_OK || wParam == IDC_BUTTON_CANCEL {
+			// в lParam приходит Handle окна кнопки
+			win2, exists := WinMap.Load(syscall.Handle(lParam))
+			if exists {
+				w2 := win2.(*Window)
+				go w.HandleButton(w2, wParam)
 				return 0 // если мы обрабатываем, должны вернуть 0
 			}
 		}
@@ -268,8 +270,16 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintptr
 }
 
 // ----------------------------------------
-func (w *Window) HandleButton(w2 *Window) {
-	log.Println(w2.Config.Title)
+func (w *Window) HandleButton(w2 *Window, wParam uintptr) {
+	switch wParam {
+	case IDC_BUTTON_OK:
+		log.Println(w2.Config.Title)
+		// И какие-то действия
+	case IDC_BUTTON_CANCEL:
+		log.Println(w2.Config.Title)
+		// И какие-то действия
+	}
+
 }
 
 // hitTest returns the non-client area hit by the point, needed to
