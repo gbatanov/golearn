@@ -39,6 +39,7 @@ const (
 )
 
 type Config struct {
+	ID         uintptr
 	Position   image.Point
 	Size       image.Point
 	MinSize    image.Point
@@ -55,7 +56,6 @@ type Config struct {
 }
 
 type Window struct {
-	Id          int32
 	Hwnd        syscall.Handle
 	Hdc         syscall.Handle
 	HInst       syscall.Handle
@@ -152,7 +152,6 @@ func CreateNativeMainWindow(config Config) (*Window, error) {
 		return nil, err
 	}
 	w := &Window{
-		Id:        0,
 		Hwnd:      hwnd,
 		HInst:     resources.handle,
 		Config:    config,

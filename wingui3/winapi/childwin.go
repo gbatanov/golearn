@@ -2,34 +2,30 @@ package winapi
 
 import "golang.org/x/sys/windows"
 
-const IDC_BUTTON_OK = 100
-const IDC_BUTTON_CANCEL = 101
+// Пользовательские кнопки начинаются со 100 (0x64)
+//const ID_BUTTON_1 = 100
+//const ID_BUTTON_2 = 101
 
 // Label
-func CreateLabel(parent *Window, config Config, id int) (*Window, error) {
-	return CreateChildWindow(parent, config, id)
+func CreateLabel(parent *Window, config Config) (*Window, error) {
+	return CreateChildWindow(parent, config)
 }
 
 // Button
-func CreateButton(parent *Window, config Config, id int) (*Window, error) {
-	return CreateChildWindow(parent, config, id)
+func CreateButton(parent *Window, config Config) (*Window, error) {
+	return CreateChildWindow(parent, config)
 }
 
 // Создаем статическое окно
-func CreateChildWindow(parent *Window, config Config, id int) (*Window, error) {
+func CreateChildWindow(parent *Window, config Config) (*Window, error) {
 
 	var dwStyle uint32 = WS_CHILD | WS_VISIBLE
 	if config.BorderSize.X > 0 {
 		dwStyle |= WS_BORDER
 	}
-	var hMenu windows.Handle = 0
-	if config.Class == "Button" {
-		if config.Title == "Ok" {
-			hMenu = windows.Handle(IDC_BUTTON_OK)
-		} else if config.Title == "Cancel" {
-			hMenu = windows.Handle(IDC_BUTTON_CANCEL)
-		}
-	}
+
+	hMenu := windows.Handle(config.ID)
+
 	hwnd, err := CreateWindowEx(
 		0,
 		config.Class,                                       // standard static class,
@@ -45,7 +41,6 @@ func CreateChildWindow(parent *Window, config Config, id int) (*Window, error) {
 		return nil, err
 	}
 	w := &Window{
-		Id:        int32(id),
 		Hwnd:      hwnd,
 		HInst:     parent.HInst,
 		Config:    config,

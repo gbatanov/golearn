@@ -255,7 +255,7 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintptr
 	case WM_COMMAND:
 		log.Printf("WM_COMMAND 0x%08x 0x%08x \n", wParam, lParam)
 		// Если мы прописали ID кнопки в качестве hMenu, то в wParam придет этот код
-		if wParam == IDC_BUTTON_OK || wParam == IDC_BUTTON_CANCEL {
+		if wParam == IDOK || wParam == IDCANCEL {
 			// в lParam приходит Handle окна кнопки
 			win2, exists := WinMap.Load(syscall.Handle(lParam))
 			if exists {
@@ -272,10 +272,10 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintptr
 // ----------------------------------------
 func (w *Window) HandleButton(w2 *Window, wParam uintptr) {
 	switch wParam {
-	case IDC_BUTTON_OK:
+	case IDOK:
 		log.Println(w2.Config.Title)
 		// И какие-то действия
-	case IDC_BUTTON_CANCEL:
+	case IDCANCEL:
 		log.Println(w2.Config.Title)
 		// И какие-то действия
 	}
