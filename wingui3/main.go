@@ -1,3 +1,4 @@
+// Пример использования
 package main
 
 import (
@@ -8,7 +9,7 @@ import (
 	"github.com/gbatanov/golearn/wingui3/winapi"
 )
 
-const VERSION = "v0.0.23"
+const VERSION = "v0.0.24"
 
 const COLOR_GREEN = 0x0011aa11
 const COLOR_RED = 0x000000c8

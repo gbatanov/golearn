@@ -339,11 +339,12 @@ const (
 	WS_THICKFRAME    = 0x00040000
 	WS_MINIMIZEBOX   = 0x00020000
 	WS_MAXIMIZEBOX   = 0x00010000
-	WS_EX_APPWINDOW  = 0x00040000
 	WS_SIZEBOX       = 0x00040000
 	WS_EX_WINDOWEDGE = 0x00000100
 	WS_DLGFRAME      = 0x00400000
 	WS_POPUP         = 0x80000000
+
+	WS_EX_APPWINDOW = 0x00040000
 
 	QS_ALLINPUT = 0x04FF
 
@@ -1025,4 +1026,11 @@ func BeginPaint(hwnd syscall.Handle, lpPaint *PAINTSTRUCT) syscall.Handle {
 
 func EndPaint(hwnd syscall.Handle, lpPaint *PAINTSTRUCT) {
 	_EndPaint.Call(uintptr(hwnd), uintptr(unsafe.Pointer(lpPaint)))
+}
+
+func Loword(in uint32) uint16 {
+	return uint16(in & 0x0000ffff)
+}
+func Hiword(in uint32) uint16 {
+	return uint16((in >> 8) & 0x0000ffff)
 }

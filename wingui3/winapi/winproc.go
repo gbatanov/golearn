@@ -155,8 +155,8 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) int {
 		// Поворот горизонтального колесика +- WHEEL_DELTA (120) HIWORD wParam
 		//		w.scrollEvent(wParam, lParam, true, getModifiers())
 	case WM_NCACTIVATE:
-		// Отправляется в окно, когда его неклиентная область должна быть изменена,
-		//  чтобы указать активное или неактивное состояние.
+		// Отправляется в окно, когда его неклиентская область должна быть изменена,
+		// чтобы указать активное или неактивное состояние.
 		if w.Stage >= StageInactive {
 			if wParam == TRUE {
 				w.Stage = StageRunning
@@ -168,7 +168,7 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) int {
 	case WM_NCHITTEST:
 		// Отправляется в окно, чтобы определить,
 		// какая часть окна соответствует определенной экранной координате.
-		// Если окно с заголовком (мой вариант), его обрабатывает дефолтная процедура
+		// Если окно с заголовком, его обрабатывает дефолтная процедура
 		if w.Config.SysMenu {
 			break
 		}
@@ -186,27 +186,29 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) int {
 		// Отправляется, когда необходимо вычислить размер и положение клиентской области окна.
 		//  Обрабатывая это сообщение,  приложение может управлять содержимым
 		// клиентской области окна при изменении размера или положения окна.
-		// Если окно с заголовком (мой вариант), его обрабатывает дефолтная процедура
-		break
-		/*
-			// No client areas; we draw decorations ourselves.
-			if wParam != 1 {
-				return 0
-			}
-			// lParam contains an NCCALCSIZE_PARAMS for us to adjust.
-			place := GetWindowPlacement(w.Hwnd)
-			if !place.IsMaximized() {
-				// Nothing do adjust.
-				return 0
-			}
-			// Adjust window position to avoid the extra padding in maximized
-			// state. See https://devblogs.microsoft.com/oldnewthing/20150304-00/?p=44543.
-			// Note that trying to do the adjustment in WM_GETMINMAXINFO is ignored by
-			szp := (*NCCalcSizeParams)(unsafe.Pointer(uintptr(lParam)))
-			mi := GetMonitorInfo(w.Hwnd)
-			szp.Rgrc[0] = mi.WorkArea
+		// Если окно с заголовком, его обрабатывает дефолтная процедура
+		if w.Config.SysMenu {
+			break
+		}
+
+		// No client areas; we draw decorations ourselves.
+		if wParam != 1 {
 			return 0
-		*/
+		}
+		// lParam contains an NCCALCSIZE_PARAMS for us to adjust.
+		place := GetWindowPlacement(w.Hwnd)
+		if !place.IsMaximized() {
+			// Nothing do adjust.
+			return 0
+		}
+		// Adjust window position to avoid the extra padding in maximized
+		// state. See https://devblogs.microsoft.com/oldnewthing/20150304-00/?p=44543.
+		// Note that trying to do the adjustment in WM_GETMINMAXINFO is ignored by
+		szp := (*NCCalcSizeParams)(unsafe.Pointer(uintptr(lParam)))
+		mi := GetMonitorInfo(w.Hwnd)
+		szp.Rgrc[0] = mi.WorkArea
+		return 0
+
 	case WM_PAINT:
 		w.draw(true)
 
@@ -284,8 +286,9 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) int {
 	case WM_COMMAND:
 		// Коды команд меню и активных элементов окна (типа кнопки) через присвоенный им код
 		log.Printf("WM_COMMAND 0x%08x 0x%08x \n", wParam, lParam)
-		// Если мы прописали ID кнопки в качестве hMenu, при создании окна,  то в wParam придет этот код
-		if wParam&0x0000ffff == ID_BUTTON_1 || wParam&0x0000ffff == ID_BUTTON_2 {
+		// Если мы прописали ID кнопки в качестве hMenu, при создании окна,
+		// то в wParam в LOWORD придет этот код
+		if Loword(uint32(wParam)) == ID_BUTTON_1 || Loword(uint32(wParam)) == ID_BUTTON_2 {
 			// в lParam приходит Handle окна кнопки
 			win2, exists := WinMap.Load(syscall.Handle(lParam))
 			if exists {
@@ -303,7 +306,7 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) int {
 
 // ----------------------------------------
 func (w *Window) HandleButton(w2 *Window, wParam uintptr) {
-	switch wParam & 0x0000ffff {
+	switch Loword(uint32(wParam)) {
 	case ID_BUTTON_1:
 		log.Println(w2.Config.Title)
 		// И какие-то действия
