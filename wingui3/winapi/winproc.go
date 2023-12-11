@@ -31,23 +31,15 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) int {
 
 	switch msg {
 	case WM_DESTROY:
-		w.Config.EventChan <- Event{
-			SWin:   w,
-			Kind:   Destroy,
-			Source: Frame,
-			Time:   GetMessageTime(),
-		}
 		if w.Hdc != 0 {
 			ReleaseDC(w.Hdc)
 			w.Hdc = 0
 		}
-		// The system destroys the HWND for us.
 		w.Hwnd = 0
 		PostQuitMessage(0)
 
 	case WM_UNICHAR:
 		if wParam == UNICODE_NOCHAR {
-			// Tell the system that we accept WM_UNICHAR messages.
 			return TRUE
 		}
 		fallthrough
