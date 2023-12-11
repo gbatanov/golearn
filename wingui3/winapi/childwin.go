@@ -3,8 +3,8 @@ package winapi
 import "golang.org/x/sys/windows"
 
 // Пользовательские элементы начинаются со 100 (0x64)
-//const ID_BUTTON_1 = 100
-//const ID_BUTTON_2 = 101
+const ID_BUTTON_1 = 100
+const ID_BUTTON_2 = 101
 
 // Label
 func CreateLabel(parent *Window, config Config) (*Window, error) {

@@ -119,7 +119,7 @@ func initResources() error {
 	return nil
 }
 
-const dwExStyle = WS_EX_APPWINDOW | WS_EX_WINDOWEDGE
+const dwExStyle = 0 //| WS_EX_WINDOWEDGE // WS_EX_APPWINDOW
 
 // Создание основного окна программы
 func CreateNativeMainWindow(config Config) (*Window, error) {
@@ -132,9 +132,11 @@ func CreateNativeMainWindow(config Config) (*Window, error) {
 		return nil, resErr
 	}
 	// WS_CAPTION включает в себя WS_BORDER
-	var dwStyle uint32 = 0 | WS_CAPTION
+	var dwStyle uint32 = 0
 	if config.SysMenu {
-		dwStyle = dwStyle | WS_SYSMENU
+		dwStyle = dwStyle | WS_SYSMENU | WS_CAPTION | WS_SIZEBOX
+	} else {
+		dwStyle = dwStyle | WS_POPUP
 	}
 
 	hwnd, err := CreateWindowEx(

@@ -8,35 +8,34 @@ import (
 	"github.com/gbatanov/golearn/wingui3/winapi"
 )
 
-const VERSION = "v0.0.22"
+const VERSION = "v0.0.23"
 
 const COLOR_GREEN = 0x0011aa11
 const COLOR_RED = 0x000000c8
 const COLOR_YELLOW = 0x0000c8c8
-const COLOR_GRAYDE = 0x00dedede
-const COLOR_GRAYBC = 0x00bcbcbc
-const COLOR_GRAYAA = 0x00aaaaaa
+const COLOR_GRAY_DE = 0x00dedede
+const COLOR_GRAY_BC = 0x00bcbcbc
+const COLOR_GRAY_AA = 0x00aaaaaa
 
 var mouseX, mouseY int = 0, 0
 var serverList []string = []string{"192.168.76.106", "192.168.76.80"}
 
 // Конфиг основного окна
 var config = winapi.Config{
-	ID:         0,
 	Position:   image.Pt(20, 20),
-	MaxSize:    image.Pt(240, 240),
-	MinSize:    image.Pt(240, 100),
+	MaxSize:    image.Pt(480, 240),
+	MinSize:    image.Pt(200, 100),
 	Size:       image.Pt(240, 100),
 	Title:      "Server check",
 	EventChan:  make(chan winapi.Event, 256),
 	BorderSize: image.Pt(1, 1),
 	Mode:       winapi.Windowed,
-	BgColor:    COLOR_GRAYDE,
+	BgColor:    COLOR_GRAY_DE,
 	SysMenu:    true,
 	Class:      "GsbWindow",
 }
 var labelConfig = winapi.Config{
-	ID:         0,
+	Class:      "Static",
 	Title:      "Static",
 	EventChan:  config.EventChan,
 	Size:       image.Pt(int(config.Size.X-50), int(30)),
@@ -48,7 +47,6 @@ var labelConfig = winapi.Config{
 	TextColor:  COLOR_GREEN,
 	FontSize:   28,
 	BgColor:    config.BgColor,
-	Class:      "Static",
 }
 var btnConfig = winapi.Config{
 	Class:      "Button",
@@ -60,7 +58,7 @@ var btnConfig = winapi.Config{
 	BorderSize: image.Pt(1, 1),
 	TextColor:  COLOR_GREEN,
 	FontSize:   16,
-	BgColor:    COLOR_GRAYAA,
+	BgColor:    COLOR_GRAY_AA,
 }
 
 func main() {
@@ -70,11 +68,14 @@ func main() {
 		for {
 			ev, ok := <-config.EventChan
 			if !ok {
+				// канал закрыт
 				return
 			}
 			switch ev.Source {
 			case winapi.Mouse:
-				MouseHandler(ev)
+				MouseEventHandler(ev)
+			case winapi.Frame:
+				FrameEventHandler(ev)
 			}
 
 		}
@@ -93,14 +94,14 @@ func main() {
 		// Button
 		id := len(serverList)
 		btnConfig1 := btnConfig
-		btnConfig1.ID = winapi.IDOK
+		btnConfig1.ID = winapi.ID_BUTTON_1
 		btnConfig1.Position.Y = 20 + (labelConfig.Size.Y)*(id)
 		AddButton(win, btnConfig1, id)
 
 		id++
 		btnConfig2 := btnConfig
 		btnConfig2.Title = "Cancel"
-		btnConfig2.ID = winapi.IDCANCEL
+		btnConfig2.ID = winapi.ID_BUTTON_2
 		btnConfig2.Position.Y = btnConfig1.Position.Y
 		btnConfig2.Position.X = btnConfig1.Position.X + btnConfig1.Size.X + 10
 		btnConfig2.Size.X = 60
@@ -160,7 +161,7 @@ func AddButton(win *winapi.Window, btnConfig winapi.Config, id int) error {
 }
 
 // Обработка событий мыши
-func MouseHandler(ev winapi.Event) {
+func MouseEventHandler(ev winapi.Event) {
 	mouseX = ev.Position.X
 	mouseY = ev.Position.Y
 
@@ -177,4 +178,7 @@ func MouseHandler(ev winapi.Event) {
 		log.Println("Mouse enter focus ")
 
 	}
+}
+
+func FrameEventHandler(ev winapi.Event) {
 }

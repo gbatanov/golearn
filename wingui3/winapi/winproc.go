@@ -13,7 +13,7 @@ import (
 func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) int {
 	win, exists := WinMap.Load(hwnd)
 	if !exists {
-		// Эти сообщения появляются еще до создания окна, поэтому его нет в WinMap!!!
+		// Эти сообщения появляются еще до создания окна, поэтому его хэндла нет в WinMap!!!
 		if msg == WM_CREATE {
 			return 0 // Если вернуть -1 - окно не создается
 		} else if msg == WM_NCCREATE {
@@ -22,6 +22,7 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) int {
 		return DefWindowProc(hwnd, msg, wParam, lParam)
 	}
 
+	// Далее работа с сообщениями от уже созданного окна
 	w := win.(*Window)
 
 	switch msg {
@@ -92,9 +93,18 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) int {
 		w.pointerButton(ButtonTertiary, false, lParam, getModifiers())
 	case WM_CANCELMODE:
 		log.Println("Cancel")
-		//		w.w.Event( Event{
-		//			Kind:  Cancel,
-		//		})
+		// Если обрабатываем, вернуть 0
+		// При отправке сообщения WM_CANCELMODE функция DefWindowProc отменяет внутреннюю обработку
+		// стандартных входных данных полосы прокрутки,
+		// отменяет обработку внутреннего меню и освобождает захват мыши.
+		/*
+			w.Config.EventChan <- Event{
+				SWin:   w,
+				Kind:   Cancel,
+				Source: Frame,
+			}
+			return 0
+		*/
 	case WM_SETFOCUS:
 		// Это щелчок в окне
 		w.Focused = true
@@ -109,7 +119,7 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) int {
 			Modifiers: getModifiers(),
 		}
 	case WM_KILLFOCUS:
-		// Щелчок вне нашего окна
+		// Щелчок вне нашего главного окна
 		// Щелчок по кнопке тоже дает это событие
 		w.Focused = false
 		w.Config.EventChan <- Event{
@@ -139,10 +149,14 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) int {
 		}
 
 	case WM_MOUSEWHEEL:
+		// Поворот колесика +- WHEEL_DELTA (120) HIWORD wParam
 		//		w.scrollEvent(wParam, lParam, false, getModifiers())
 	case WM_MOUSEHWHEEL:
+		// Поворот горизонтального колесика +- WHEEL_DELTA (120) HIWORD wParam
 		//		w.scrollEvent(wParam, lParam, true, getModifiers())
 	case WM_NCACTIVATE:
+		// Отправляется в окно, когда его неклиентная область должна быть изменена,
+		//  чтобы указать активное или неактивное состояние.
 		if w.Stage >= StageInactive {
 			if wParam == TRUE {
 				w.Stage = StageRunning
@@ -150,42 +164,49 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) int {
 				w.Stage = StageInactive
 			}
 		}
-		/*
-			case WM_NCHITTEST:
-				//		if w.Config.Decorated {
-				//			// Let the system handle it.
-				break
-				//		}
-				x, y := coordsFromlParam(lParam)
 
-				np := Point{X: int32(x), Y: int32(y)}
-				ScreenToClient(w.Hwnd, &np)
-				return w.hitTest(int(np.X), int(np.Y))
-		*/
+	case WM_NCHITTEST:
+		// Отправляется в окно, чтобы определить,
+		// какая часть окна соответствует определенной экранной координате.
+		// Если окно с заголовком (мой вариант), его обрабатывает дефолтная процедура
+		if w.Config.SysMenu {
+			break
+		}
+
+		x, y := coordsFromlParam(lParam)
+		log.Printf("x: %d y: %d", x, y)
+		np := Point{X: int32(x), Y: int32(y)}
+		ScreenToClient(w.Hwnd, &np)
+		log.Printf("np.x: %d np.y: %d", np.X, np.Y)
+		area := w.hitTest(int(np.X), int(np.Y))
+		log.Printf("area: %d", area)
+		return area
 
 	case WM_NCCALCSIZE:
-		//		if w.Config.Decorated {
-		//			// Let Windows handle decorations.
+		// Отправляется, когда необходимо вычислить размер и положение клиентской области окна.
+		//  Обрабатывая это сообщение,  приложение может управлять содержимым
+		// клиентской области окна при изменении размера или положения окна.
+		// Если окно с заголовком (мой вариант), его обрабатывает дефолтная процедура
 		break
-		//		}
-		// No client areas; we draw decorations ourselves.
-		if wParam != 1 {
+		/*
+			// No client areas; we draw decorations ourselves.
+			if wParam != 1 {
+				return 0
+			}
+			// lParam contains an NCCALCSIZE_PARAMS for us to adjust.
+			place := GetWindowPlacement(w.Hwnd)
+			if !place.IsMaximized() {
+				// Nothing do adjust.
+				return 0
+			}
+			// Adjust window position to avoid the extra padding in maximized
+			// state. See https://devblogs.microsoft.com/oldnewthing/20150304-00/?p=44543.
+			// Note that trying to do the adjustment in WM_GETMINMAXINFO is ignored by
+			szp := (*NCCalcSizeParams)(unsafe.Pointer(uintptr(lParam)))
+			mi := GetMonitorInfo(w.Hwnd)
+			szp.Rgrc[0] = mi.WorkArea
 			return 0
-		}
-		// lParam contains an NCCALCSIZE_PARAMS for us to adjust.
-		place := GetWindowPlacement(w.Hwnd)
-		if !place.IsMaximized() {
-			// Nothing do adjust.
-			return 0
-		}
-		// Adjust window position to avoid the extra padding in maximized
-		// state. See https://devblogs.microsoft.com/oldnewthing/20150304-00/?p=44543.
-		// Note that trying to do the adjustment in WM_GETMINMAXINFO is ignored by
-		szp := (*NCCalcSizeParams)(unsafe.Pointer(uintptr(lParam)))
-		mi := GetMonitorInfo(w.Hwnd)
-		szp.Rgrc[0] = mi.WorkArea
-		return 0
-
+		*/
 	case WM_PAINT:
 		w.draw(true)
 
@@ -213,6 +234,10 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) int {
 		UpdateWindow(hwnd)
 		return 0
 	case WM_GETMINMAXINFO:
+		// Отправляется в окно, когда размер или положение окна вот-вот изменится.
+		// Приложение может использовать это сообщение, чтобы переопределить
+		// развернутый размер и положение окна по умолчанию,
+		// а также его минимальный или максимальный размер отслеживания по умолчанию.
 		mm := (*MinMaxInfo)(unsafe.Pointer(uintptr(lParam)))
 		var bw, bh int32 = 0, 0
 		//		if w.Config.Decorated {
@@ -242,22 +267,25 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) int {
 			return TRUE
 		}
 
-	// Установка параметров текста для статических элементов окна
 	case WM_CTLCOLORSTATIC:
-
+		// Установка параметров текста для статических элементов окна (STATIC или ReadOnly EDIT)
 		wc := w.Childrens[1]
 		log.Println(wc.Hdc, syscall.Handle(wParam))
 
-		SetTextColor(syscall.Handle(wParam), wc.Config.TextColor)   // цвет самого теста
-		SetBkColor(syscall.Handle(wParam), wc.Config.BgColor)       // цвет подложки текста
+		SetTextColor(syscall.Handle(wParam), wc.Config.TextColor) // цвет самого теста
+		SetBkColor(syscall.Handle(wParam), wc.Config.BgColor)     // цвет подложки текста
+
+		// Если приложение обрабатывает это сообщение, возвращаемое значение представляет собой дескриптор кисти,
+		// которую система использует для рисования фона статического элемента управления.
 		hbrBkgnd, err := CreateSolidBrush(int32(wc.Config.BgColor)) // цвет заливки окна
 		if err == nil {
 			return int(hbrBkgnd)
 		}
 	case WM_COMMAND:
+		// Коды команд меню и активных элементов окна (типа кнопки) через присвоенный им код
 		log.Printf("WM_COMMAND 0x%08x 0x%08x \n", wParam, lParam)
-		// Если мы прописали ID кнопки в качестве hMenu, то в wParam придет этот код
-		if wParam == IDOK || wParam == IDCANCEL {
+		// Если мы прописали ID кнопки в качестве hMenu, при создании окна,  то в wParam придет этот код
+		if wParam&0x0000ffff == ID_BUTTON_1 || wParam&0x0000ffff == ID_BUTTON_2 {
 			// в lParam приходит Handle окна кнопки
 			win2, exists := WinMap.Load(syscall.Handle(lParam))
 			if exists {
@@ -266,6 +294,8 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) int {
 				return 0 // если мы обрабатываем, должны вернуть 0
 			}
 		}
+	case WM_NOTIFY:
+		log.Printf("WM_NOTIFY 0x%08x 0x%08x \n", wParam, lParam)
 	}
 
 	return DefWindowProc(hwnd, msg, wParam, lParam)
@@ -273,21 +303,23 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) int {
 
 // ----------------------------------------
 func (w *Window) HandleButton(w2 *Window, wParam uintptr) {
-	switch wParam {
-	case IDOK:
+	switch wParam & 0x0000ffff {
+	case ID_BUTTON_1:
 		log.Println(w2.Config.Title)
 		// И какие-то действия
 
-	case IDCANCEL:
+	case ID_BUTTON_2:
 		log.Println(w2.Config.Title)
 		// И какие-то действия
 	}
 
 }
 
-// hitTest returns the non-client area hit by the point, needed to
-// process WM_NCHITTEST.
-func (w *Window) hitTest(x, y int) uintptr {
+// hitTest возвращает область, в которую попал указатель мыши,
+// HTCLIENT возвращается при перемещении мыши ынутри клиентской области
+// Другие показывают направление относительно клиентской области
+// нужно для обработки сообщения  WM_NCHITTEST.
+func (w *Window) hitTest(x, y int) int {
 	if w.Config.Mode == Fullscreen {
 		return HTCLIENT
 	}
@@ -304,20 +336,28 @@ func (w *Window) hitTest(x, y int) uintptr {
 	right := x >= w.Config.Size.X-w.Config.BorderSize.X
 	switch {
 	case top && left:
+		log.Println("HTTOPLEFT")
 		return HTTOPLEFT
 	case top && right:
+		log.Println("HTTOPRIGHT")
 		return HTTOPRIGHT
 	case bottom && left:
+		log.Println("HTBOTTOMLEFT")
 		return HTBOTTOMLEFT
 	case bottom && right:
+		log.Println("HTBOTTOMRIGHT")
 		return HTBOTTOMRIGHT
 	case top:
+		log.Println("HTTOP")
 		return HTTOP
 	case bottom:
+		log.Println("HTBOTTOM")
 		return HTBOTTOM
 	case left:
+		log.Println("HTLEFT")
 		return HTLEFT
 	case right:
+		log.Println("HTRIGHT")
 		return HTRIGHT
 	}
 	/*
@@ -326,7 +366,9 @@ func (w *Window) hitTest(x, y int) uintptr {
 		if a, ok := w.w.ActionAt(p); ok && a == system.ActionMove {
 			return  HTCAPTION
 		}
+
 	*/
+
 	return HTCLIENT
 }
 
