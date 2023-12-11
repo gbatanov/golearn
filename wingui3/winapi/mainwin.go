@@ -95,7 +95,7 @@ func initResources(config Config) error {
 		return err
 	}
 
-	icon, _ := LoadImage(hInst, iconID, IMAGE_ICON, 0, 0, LR_DEFAULTSIZE|LR_SHARED)
+	icon, err := LoadImage(0, ".\\img\\logo.ico", IMAGE_ICON, 0, 0, LR_DEFAULTSIZE|LR_LOADFROMFILE)
 	wcls := WndClassEx{
 		CbSize:    uint32(unsafe.Sizeof(WndClassEx{})),
 		HInstance: hInst,

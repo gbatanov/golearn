@@ -823,8 +823,10 @@ func LoadCursor(curID uint16) (syscall.Handle, error) {
 	return syscall.Handle(h), nil
 }
 
-func LoadImage(hInst syscall.Handle, res uint32, typ uint32, cx, cy int, fuload uint32) (syscall.Handle, error) {
-	h, _, err := _LoadImage.Call(uintptr(hInst), uintptr(res), uintptr(typ), uintptr(cx), uintptr(cy), uintptr(fuload))
+// Загрузка картинки из файла
+func LoadImage(hInst syscall.Handle, res string, typ uint32, cx, cy int, fuload uint32) (syscall.Handle, error) {
+	resName := syscall.StringToUTF16Ptr(res)
+	h, _, err := _LoadImage.Call(uintptr(hInst), uintptr(unsafe.Pointer(resName)), uintptr(typ), uintptr(cx), uintptr(cy), uintptr(fuload))
 	if h == 0 {
 		return 0, fmt.Errorf("LoadImageW failed: %v", err)
 	}

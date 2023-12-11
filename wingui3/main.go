@@ -9,7 +9,7 @@ import (
 	"github.com/gbatanov/golearn/wingui3/winapi"
 )
 
-const VERSION = "v0.0.26"
+const VERSION = "v0.0.27"
 
 const COLOR_GREEN = 0x0011aa11
 const COLOR_RED = 0x000000c8
@@ -32,7 +32,7 @@ var config = winapi.Config{
 	BorderSize: image.Pt(1, 1),
 	Mode:       winapi.Windowed,
 	BgColor:    COLOR_GRAY_DE,
-	SysMenu:    1,
+	SysMenu:    2,
 	Class:      "GsbWindow",
 }
 var labelConfig = winapi.Config{
@@ -86,14 +86,15 @@ func main() {
 	if err == nil {
 		defer winapi.WinMap.Delete(win.Hwnd)
 
+		var id int = 0
 		// Label с текстом
-		for id, title := range serverList {
+		for _, title := range serverList {
 			labelConfig.Title = title
 			AddLabel(win, labelConfig, id)
+			id++
 		}
 
 		// Button
-		id := len(serverList)
 		btnConfig1 := btnConfig
 		btnConfig1.ID = winapi.ID_BUTTON_1
 		btnConfig1.Position.Y = 20 + (labelConfig.Size.Y)*(id)
