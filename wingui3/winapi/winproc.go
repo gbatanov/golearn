@@ -14,11 +14,15 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) int {
 	win, exists := WinMap.Load(hwnd)
 	if !exists {
 		// Эти сообщения появляются еще до создания окна, поэтому его хэндла нет в WinMap!!!
-		if msg == WM_CREATE {
-			return 0 // Если вернуть -1 - окно не создается
-		} else if msg == WM_NCCREATE {
-			return 1 // Если вернуть 0 - окно не создается
-		}
+		/*
+			Я не собираюсь использовать этии сообщения, поэтому игнорирую
+			if msg == WM_NCCREATE { // сначала приходит это
+				// return 1 // Если вернуть 0 - окно не создается, если 1 - нет title
+				// если не обрабатываем, то передаем обработку функции DefWindowProc
+			} else if msg == WM_CREATE { // потом это
+				return 0 // Если вернуть -1 - окно не создается
+			}
+		*/
 		return DefWindowProc(hwnd, msg, wParam, lParam)
 	}
 
@@ -169,7 +173,7 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) int {
 		// Отправляется в окно, чтобы определить,
 		// какая часть окна соответствует определенной экранной координате.
 		// Если окно с заголовком, его обрабатывает дефолтная процедура
-		if w.Config.SysMenu {
+		if w.Config.SysMenu > 0 {
 			break
 		}
 
@@ -187,7 +191,7 @@ func windowProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) int {
 		//  Обрабатывая это сообщение,  приложение может управлять содержимым
 		// клиентской области окна при изменении размера или положения окна.
 		// Если окно с заголовком, его обрабатывает дефолтная процедура
-		if w.Config.SysMenu {
+		if w.Config.SysMenu > 0 {
 			break
 		}
 

@@ -9,7 +9,7 @@ import (
 	"github.com/gbatanov/golearn/wingui3/winapi"
 )
 
-const VERSION = "v0.0.24"
+const VERSION = "v0.0.26"
 
 const COLOR_GREEN = 0x0011aa11
 const COLOR_RED = 0x000000c8
@@ -32,7 +32,7 @@ var config = winapi.Config{
 	BorderSize: image.Pt(1, 1),
 	Mode:       winapi.Windowed,
 	BgColor:    COLOR_GRAY_DE,
-	SysMenu:    true,
+	SysMenu:    1,
 	Class:      "GsbWindow",
 }
 var labelConfig = winapi.Config{

@@ -39,13 +39,13 @@ const (
 )
 
 type Config struct {
-	ID         uintptr
+	ID         uintptr // используется в дочерних активных элементах, как hMenu
 	Position   image.Point
 	Size       image.Point
 	MinSize    image.Point
 	MaxSize    image.Point
 	Mode       WindowMode
-	SysMenu    bool
+	SysMenu    int // 0 - нет шапки, 1- только заголовок, 2 - иконка и кнопка закрытия
 	Title      string
 	EventChan  chan Event
 	BorderSize image.Point
@@ -78,14 +78,12 @@ var resources struct {
 	once sync.Once
 	// handle is the module handle from GetModuleHandle.
 	handle syscall.Handle
-	// class is window class from RegisterClassEx.
-	class string
 	// cursor is the arrow cursor resource.
 	cursor syscall.Handle
 }
 
 // initResources initializes the resources global.
-func initResources() error {
+func initResources(config Config) error {
 	SetProcessDPIAware()
 	hInst, err := GetModuleHandle()
 	if err != nil {
@@ -105,7 +103,7 @@ func initResources() error {
 
 	wcls.Style = CS_HREDRAW | CS_VREDRAW | CS_OWNDC
 	wcls.HIcon = icon
-	wcls.LpszClassName = syscall.StringToUTF16Ptr("GsbWindow")
+	wcls.LpszClassName = syscall.StringToUTF16Ptr(config.Class)
 
 	wcls.LpfnWndProc = syscall.NewCallback(windowProc)
 	_, err = RegisterClassEx(&wcls)
@@ -114,29 +112,29 @@ func initResources() error {
 	}
 	resources.handle = hInst
 	resources.cursor = c
-	resources.class = "GsbWindow"
 
 	return nil
 }
-
-const dwExStyle = 0 //| WS_EX_WINDOWEDGE // WS_EX_APPWINDOW
 
 // Создание основного окна программы
 func CreateNativeMainWindow(config Config) (*Window, error) {
 
 	var resErr error
 	resources.once.Do(func() {
-		resErr = initResources()
+		resErr = initResources(config)
 	})
 	if resErr != nil {
 		return nil, resErr
 	}
 	// WS_CAPTION включает в себя WS_BORDER
+	var dwExStyle uint32 = 0
 	var dwStyle uint32 = 0
-	if config.SysMenu {
-		dwStyle = dwStyle | WS_SYSMENU | WS_CAPTION | WS_SIZEBOX
+	if config.SysMenu == 2 {
+		dwStyle = WS_SYSMENU | WS_CAPTION | WS_SIZEBOX
+	} else if config.SysMenu == 1 {
+		dwStyle = WS_CAPTION | WS_SIZEBOX
 	} else {
-		dwStyle = dwStyle | WS_POPUP
+		dwStyle = WS_POPUP
 	}
 
 	hwnd, err := CreateWindowEx(
