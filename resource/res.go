@@ -34,8 +34,8 @@ func main() {
 		ProductVersion: [4]uint16{0, 0, 1, 0},
 	}
 	vi.Set(0, version.ProductName, "WinGUI example")
-	vi.Set(0, version.ProductVersion, "v0.0.1")
-	vi.Set(0, version.FileVersion, "v0.0.28.0")
+	vi.Set(0, version.ProductVersion, "v0.0.2.0")
+	vi.Set(0, version.FileVersion, "v0.0.9.0")
 
 	// Add the VersionInfo to the resource set
 	rs.SetVersionInfo(vi)
