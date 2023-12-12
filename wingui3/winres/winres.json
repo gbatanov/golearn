@@ -1,5 +1,11 @@
 {
   "RT_GROUP_ICON": {
+    "#1": {
+      "0000": [
+        "icon.png",
+        "icon16.png"
+      ]
+    },
     "APP": {
       "0000": [
         "icon.png",
@@ -36,23 +42,23 @@
     "#1": {
       "0000": {
         "fixed": {
-          "file_version": "0.0.29.0",
-          "product_version": "0.0.1.0"
+          "file_version": "0.0.31",
+          "product_version": "0.0.1"
         },
         "info": {
           "0409": {
-            "Comments": "WinGui Example",
+            "Comments": "WinGui3 Example",
             "CompanyName": "GSB",
-            "FileDescription": "WinGui Example",
-            "FileVersion": "v0.0.29.0",
+            "FileDescription": "WinGui3 Example",
+            "FileVersion": "0.0.31",
             "InternalName": "wingui3",
             "LegalCopyright": "GSB",
             "LegalTrademarks": "GSB",
             "OriginalFilename": "wingui3",
-            "PrivateBuild": "0.0.29.0",
-            "ProductName": "wingui3",
-            "ProductVersion": "v0.0.1.0",
-            "SpecialBuild": "10"
+            "PrivateBuild": "",
+            "ProductName": "WinGUI3",
+            "ProductVersion": "0.0.1",
+            "SpecialBuild": ""
           }
         }
       }

@@ -71,7 +71,7 @@ type Window struct {
 	CursorIn bool
 }
 
-// iconID is the ID of the icon in the resource file.
+// iconID это ID в winres.json (#1)
 const iconID = 1
 
 var resources struct {
@@ -95,7 +95,10 @@ func initResources(config Config) error {
 		return err
 	}
 
-	icon, err := LoadImage(0, ".\\img\\logo.ico", IMAGE_ICON, 0, 0, LR_DEFAULTSIZE|LR_LOADFROMFILE)
+	//	icon, err := LoadIconFromFile(".\\img\\logo.ico") // вариант иконки из файла
+	// но лучше брать из предварительно подготовленного ресурса (файл .syso)
+	icon, _ := LoadImage(hInst, iconID, IMAGE_ICON, 0, 0, LR_DEFAULTSIZE|LR_SHARED)
+
 	wcls := WndClassEx{
 		CbSize:    uint32(unsafe.Sizeof(WndClassEx{})),
 		HInstance: hInst,
