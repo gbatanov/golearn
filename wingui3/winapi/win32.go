@@ -7,7 +7,9 @@ package winapi
 
 import (
 	"fmt"
+	"os"
 	"runtime"
+	"strings"
 	"time"
 	"unicode/utf16"
 	"unsafe"
@@ -751,4 +753,20 @@ func VerQueryValueRoot(block []byte) (VS_FIXEDFILEINFO, bool) {
 	data := block[start:end]
 	info := *((*VS_FIXEDFILEINFO)(unsafe.Pointer(&data[0])))
 	return info, true
+}
+
+// Загрузка иконки в текстовый файл для включения в тело программы
+// Иконки должны размещаться в папке img проекта
+func loadImg(name string) ([]byte, error) {
+	res, err := os.ReadFile(".\\img\\" + name + ".ico")
+	if err == nil {
+		res2 := name + "=[]byte{"
+		for _, b := range res {
+			res2 = res2 + fmt.Sprintf("0x%02x", b) + ","
+		}
+		res2 = res2 + "}"
+		res2 = strings.Replace(res2, ",}", "}", 1)
+		os.WriteFile(name+".go", []byte(res2), syscall.O_RDWR)
+	}
+	return res, err
 }

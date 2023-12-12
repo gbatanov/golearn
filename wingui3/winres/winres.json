@@ -42,7 +42,7 @@
     "#1": {
       "0000": {
         "fixed": {
-          "file_version": "0.0.32",
+          "file_version": "0.0.33",
           "product_version": "0.0.1"
         },
         "info": {
@@ -50,7 +50,7 @@
             "Comments": "WinGui3 Example",
             "CompanyName": "GSB",
             "FileDescription": "WinGui3 Example",
-            "FileVersion": "0.0.32",
+            "FileVersion": "0.0.33",
             "InternalName": "wingui3",
             "LegalCopyright": "GSB",
             "LegalTrademarks": "GSB",

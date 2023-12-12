@@ -2803,7 +2803,7 @@ func loadImg(name string) ([]byte, error) {
 		}
 		res2 = res2 + "}"
 		res2 = strings.Replace(res2, ",}", "}", 1)
-		os.WriteFile(name+".txt", []byte(res2), syscall.O_RDWR)
+		os.WriteFile(name+".go", []byte(res2), syscall.O_RDWR)
 	}
 	return res, err
 }

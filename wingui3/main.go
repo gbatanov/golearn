@@ -14,7 +14,7 @@ import (
 	"github.com/gbatanov/golearn/wingui3/winapi"
 )
 
-var VERSION string = "v0.0.32"
+var VERSION string = "v0.0.33"
 
 const COLOR_GREEN = 0x0011aa11
 const COLOR_RED = 0x000000c8
