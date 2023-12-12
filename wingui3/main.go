@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"image"
 	"log"
+	"os"
 
 	"github.com/gbatanov/golearn/wingui3/winapi"
-	"github.com/gonutz/w32/v2"
 )
 
-var VERSION string = "v0.0.30"
+var VERSION string = "v0.0.31"
 
 const COLOR_GREEN = 0x0011aa11
 const COLOR_RED = 0x000000c8
@@ -28,7 +28,7 @@ var config = winapi.Config{
 	MaxSize:    image.Pt(480, 240),
 	MinSize:    image.Pt(200, 100),
 	Size:       image.Pt(240, 100),
-	Title:      "Server check",
+	Title:      "WinGUI3 example",
 	EventChan:  make(chan winapi.Event, 256),
 	BorderSize: image.Pt(1, 1),
 	Mode:       winapi.Windowed,
@@ -64,49 +64,7 @@ var btnConfig = winapi.Config{
 }
 
 func main() {
-	const path = "wingui3.exe" // todo: получить имя модуля
-
-	size := w32.GetFileVersionInfoSize(path)
-	if size <= 0 {
-		panic("GetFileVersionInfoSize failed")
-	}
-
-	info := make([]byte, size)
-	ok := w32.GetFileVersionInfo(path, info)
-	if !ok {
-		panic("GetFileVersionInfo failed")
-	}
-
-	fixed, ok := w32.VerQueryValueRoot(info)
-	if !ok {
-		panic("VerQueryValueRoot failed")
-	}
-	version := fixed.FileVersion()
-	fmt.Printf(
-		"file version: %d.%d.%d.%d\n",
-		version&0xFFFF000000000000>>48,
-		version&0x0000FFFF00000000>>32,
-		version&0x00000000FFFF0000>>16,
-		version&0x000000000000FFFF>>0,
-	)
-
-	translations, ok := w32.VerQueryValueTranslations(info)
-	if !ok {
-		panic("VerQueryValueTranslations failed")
-	}
-	if len(translations) == 0 {
-		panic("no translation found")
-	}
-	fmt.Println("translations:", translations)
-
-	t := translations[0]
-	// w32.CompanyName simply translates to "CompanyName"
-	company, ok := w32.VerQueryValueString(info, t, w32.CompanyName)
-	if !ok {
-		panic("cannot get company name")
-	}
-	fmt.Println("company:", company)
-
+	getFileVersion()
 	// Обработчик событий
 	go func() {
 		for {
@@ -226,4 +184,24 @@ func MouseEventHandler(ev winapi.Event) {
 }
 
 func FrameEventHandler(ev winapi.Event) {
+}
+
+func getFileVersion() {
+	size := winapi.GetFileVersionInfoSize(os.Args[0])
+	if size > 0 {
+		info := make([]byte, size)
+		ok := winapi.GetFileVersionInfo(os.Args[0], info)
+		if ok {
+			fixed, ok := winapi.VerQueryValueRoot(info)
+			if ok {
+				version := fixed.FileVersion()
+				VERSION = fmt.Sprintf("v%d.%d.%d",
+					version&0xFFFF000000000000>>48,
+					version&0x0000FFFF00000000>>32,
+					version&0x00000000FFFF0000>>16,
+				)
+				log.Println("Ver: ", VERSION)
+			}
+		}
+	}
 }
