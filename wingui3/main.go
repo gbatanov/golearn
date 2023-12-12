@@ -6,11 +6,15 @@ import (
 	"image"
 	"log"
 	"os"
+	"os/signal"
+	"syscall"
 
+	"fyne.io/systray"
+	"github.com/gbatanov/golearn/wingui3/img"
 	"github.com/gbatanov/golearn/wingui3/winapi"
 )
 
-var VERSION string = "v0.0.31"
+var VERSION string = "v0.0.32"
 
 const COLOR_GREEN = 0x0011aa11
 const COLOR_RED = 0x000000c8
@@ -63,28 +67,44 @@ var btnConfig = winapi.Config{
 	BgColor:    COLOR_GRAY_AA,
 }
 
+var quit chan os.Signal
+var flag = true
+
+// ---------------------------------------------------------------
 func main() {
+	quit = make(chan os.Signal)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM, syscall.SIGABRT)
+
 	getFileVersion()
-	// Обработчик событий
-	go func() {
-		for {
-			ev, ok := <-config.EventChan
-			if !ok {
-				// канал закрыт
-				return
-			}
-			switch ev.Source {
-			case winapi.Mouse:
-				MouseEventHandler(ev)
-			case winapi.Frame:
-				FrameEventHandler(ev)
-			}
-
-		}
-	}()
-
 	win, err := winapi.CreateNativeMainWindow(config)
 	if err == nil {
+
+		// Обработчик событий
+		go func() {
+			for flag {
+				select {
+				case ev, ok := <-config.EventChan:
+					if !ok {
+						// канал закрыт
+						flag = false
+						break
+					}
+					switch ev.Source {
+					case winapi.Mouse:
+						MouseEventHandler(ev)
+					case winapi.Frame:
+						FrameEventHandler(ev)
+					}
+
+				case <-quit: // сообщение при закрытии трея
+					flag = false
+					break
+				} //select
+			} //for
+
+			winapi.SendMessage(win.Hwnd, winapi.WM_CLOSE, 0, 0)
+		}()
+
 		defer winapi.WinMap.Delete(win.Hwnd)
 
 		var id int = 0
@@ -95,12 +115,13 @@ func main() {
 			id++
 		}
 
-		// Button
+		// Buttons
+		// Ok
 		btnConfig1 := btnConfig
 		btnConfig1.ID = winapi.ID_BUTTON_1
 		btnConfig1.Position.Y = 20 + (labelConfig.Size.Y)*(id)
 		AddButton(win, btnConfig1, id)
-
+		// Cancel
 		id++
 		btnConfig2 := btnConfig
 		btnConfig2.Title = "Cancel"
@@ -125,6 +146,11 @@ func main() {
 			int32(win.Config.Size.X),
 			int32(win.Config.Size.Y),
 			winapi.SWP_NOMOVE)
+
+		// systray
+		go func() {
+			systray.Run(onReady, onExit)
+		}()
 
 		msg := new(winapi.Msg)
 		for winapi.GetMessage(msg, 0, 0, 0) > 0 {
@@ -204,4 +230,37 @@ func getFileVersion() {
 			}
 		}
 	}
+}
+
+// трей готов к работе
+func onReady() {
+
+	if len(img.ErrIco) > 0 {
+		systray.SetIcon(img.ErrIco)
+		systray.SetTooltip("WinGUI3 example")
+	}
+	systray.SetTitle("WinGUI3 systray")
+	mQuit := systray.AddMenuItem("Quit", "Выход")
+	mQuit.Enable()
+	go func() {
+		<-mQuit.ClickedCh
+		systray.Quit()
+	}()
+
+	systray.AddSeparator()
+	mReconfig := systray.AddMenuItem("Reconfig", "Перечитать конфиг")
+	mReconfig.Enable()
+	go func() {
+		for flag {
+			<-mReconfig.ClickedCh
+			log.Println("Reconfig")
+		}
+	}()
+
+}
+
+// Обработчик завершения трея
+func onExit() {
+	quit <- syscall.SIGTERM
+	flag = false
 }
