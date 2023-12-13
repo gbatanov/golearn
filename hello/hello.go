@@ -36,7 +36,7 @@ import (
 	"github.com/matishsiao/goInfo"
 )
 
-const Version string = "v0.2.12"
+const Version string = "v0.2.13"
 
 var Os string = ""
 
@@ -920,12 +920,14 @@ func Generator() chan int {
 			// select блокируется до тех пор, пока один из его блоков case не будет готов к запуску,
 			// а затем выполняет этот блок. Если сразу несколько блоков могут быть запущены,
 			// то выбирается произвольный.
+			// На Windows порядок селектов неважен, на AstraLinux  первым егадо ставить чтение из канала,
+			// иначе возникает panic error
 			select {
-			case ch <- n: // после закрытия канала этот case не будет выполняться,
-				// поэтому паники от записи в закрытй канал не возникнет
-				n++
 			case <-ch:
 				return
+			case ch <- n: // после закрытия канала этот case не будет выполняться,
+				// поэтому паники от записи в закрытый канал не возникнет
+				n++
 			}
 		}
 	}()
@@ -2533,7 +2535,7 @@ func funcRandom() {
 
 // в Windows не работает
 func funcSyslog() {
-	fmt.Println("\nЗапись в syslog")
+	log.Println("\nЗапись в syslog")
 	/*
 		sysLog, err := syslog.New(syslog.LOG_WARNING|syslog.LOG_LOCAL7, "gsb_tag")
 		if err != nil {
