@@ -1,5 +1,6 @@
 {
     "go.toolsEnvVars": {
-        "GOPATH": "C:\\work"
+        "GOPATH": "C:\\work",
+        "GOENV": "/home/user/.config/go/env"
     }
 }
