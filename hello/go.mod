@@ -1,4 +1,4 @@
-module gbatanov/hello
+module github.com/gbatanov/golearn/hello
 
 go 1.21
 
