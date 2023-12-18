@@ -9,6 +9,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"runtime"
 
 	"io"
 	"io/fs"
@@ -33,10 +34,9 @@ import (
 	"database/sql"
 
 	_ "github.com/lib/pq"
-	"github.com/matishsiao/goInfo"
 )
 
-const Version string = "v0.2.13"
+const Version string = "v0.2.14"
 
 var Os string = ""
 
@@ -53,23 +53,20 @@ func main() {
 	funcConstant()
 	funcForIfElse()
 	funcSwitch()
-
 	funcArrays()
 	funcSlices()
-
 	funcMap()
 	funcRange()
 	funcClosure()
-
 	funcInterface()
-
 	funcErrors()
 	funcGorutine()
 	funcChannel()
 	funcSelect()
+	funcTime()
 	funcTimeout()
-	funcCloseChannel()
 	funcTimer()
+	funcCloseChannel()
 	funcWorkerPool()
 	funcAtomic()
 	funcMutex()
@@ -77,48 +74,36 @@ func main() {
 	funcStrings()
 	funcJsonToArray()
 
-	funcTime()
-
 	funcNumberParsing()
 	func4byteToFloat()
-
 	funcUrl()
-
 	funcPost()
-
 	funcDb()
-
 	funcFileWrite()
 	funcFileRead()
-
 	funcFilePath()
 	funcDir()
 	funcTempFileOrDir()
-	/*
-				funcCommandLine()
-			 funcCommandLineSubCommand()
+	if !true {
+		funcCommandLine()
+	} else {
+		funcCommandLineSubCommand()
+	}
+	funcEnvironment()
+	funcSpawnProcess()
+	funcSignal()
+	//	funcGoWithC()
+	funcBase64()
+	funcRandom()
+	funcExit(0)
+	funcExit(2)
 
-					funcEnvironment()
-					funcSpawnProcess()
-					funcSignal()
-					//	funcGoWithC()
-
-		funcBase64()
-		funcRandom()
-
-			funcConnectToShare()
-
-			funcExit(0)
-			funcExit(2)
-	*/
 }
 
 // Функции в Go не имеют аргументов "по умолчанию"
-// Параметры ОС, на которой запущена программа
+// ОС, на которой запущена программа
 func getOsParams() {
-	gi, _ := goInfo.GetInfo()
-	gi.VarDump()
-	Os = gi.GoOS // "windows"
+	Os = runtime.GOOS
 }
 
 // Типы данных
@@ -913,6 +898,7 @@ func worker_func(done chan bool) {
 // select позволяет вам ждать нескольких операций на канале.
 // select c default является неблокируемым, если нет готовых условий для case выполняется default
 func Generator() chan int {
+
 	ch := make(chan int)
 	go func() {
 		n := 1
@@ -920,13 +906,12 @@ func Generator() chan int {
 			// select блокируется до тех пор, пока один из его блоков case не будет готов к запуску,
 			// а затем выполняет этот блок. Если сразу несколько блоков могут быть запущены,
 			// то выбирается произвольный.
-			// На Windows порядок селектов неважен, на AstraLinux  первым егадо ставить чтение из канала,
-			// иначе возникает panic error
 			select {
 			case <-ch:
 				return
 			case ch <- n: // после закрытия канала этот case не будет выполняться,
 				// поэтому паники от записи в закрытый канал не возникнет
+				// на AstraLinux периодически вызывает panic error "panic: send on closed channel"
 				n++
 			}
 		}
@@ -936,13 +921,15 @@ func Generator() chan int {
 
 func funcSelect() {
 
-	fmt.Println("\nSelect")
+	log.Println("\nSelect")
 
-	number := Generator()
-	fmt.Println(<-number)
-	fmt.Println(<-number)
-	close(number)
-
+	if Os != "linux" { // TODO: уточнить по разновидностям Linux
+		// На Астре-Линукс вызывает panic
+		number := Generator()
+		fmt.Println(<-number)
+		fmt.Println(<-number)
+		close(number)
+	}
 	//В нашем примере мы будем выбирать между двумя каналами.
 	c1 := make(chan string)
 	c2 := make(chan string)
@@ -988,6 +975,30 @@ func funcSelect() {
 	}
 	// Общее время выполнения составляет всего ~2 секунды,
 	// так как и 1, и 2 секунды Sleeps выполняются одновременно.
+
+	// Еще вариант, сообщения будут печататься одновременно,
+	// несмоторя на разницу в длительности циклов
+	var chan1 chan int
+	chan1 = make(chan int)
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func(wg *sync.WaitGroup) {
+		for i := 0; i < 10; i++ {
+			time.Sleep(time.Duration(rand.Intn(5)) * time.Second)
+			chan1 <- 1
+			log.Println("one")
+		}
+		wg.Done()
+	}(&wg)
+	go func(wg *sync.WaitGroup) {
+		for i := 0; i < 10; i++ {
+			time.Sleep(time.Duration(rand.Intn(5)) * time.Second)
+			<-chan1
+			log.Println("two")
+		}
+		wg.Done()
+	}(&wg)
+	wg.Wait()
 }
 
 // Тайм-ауты
@@ -1508,6 +1519,13 @@ func funcTime() {
 
 	// Пауза в миллисекундах
 	time.Sleep(1000 * time.Millisecond)
+
+	// Duration из переменной
+	log.Println("Before pause")
+	// time.Duration это алиас для int64
+	dur := 5
+	time.Sleep(time.Duration(dur) * time.Second)
+	log.Println("After pause")
 
 	// Вы можете построить структуру time, указав год, месяц, день и т.д.
 	// Время всегда связано с местоположением, т.е. часовым поясом.
@@ -2216,6 +2234,7 @@ func funcCommandLine() {
 	flag.StringVar(&svar, "svar", "bar", "a string var")
 
 	// Как только все флаги объявлены, вызовите flag.Parse(), чтобы выполнить парсинг командной строки.
+	log.Println("Flag parse")
 	flag.Parse()
 
 	// Здесь мы просто выведем результат парсинга и все введеные аргументы.
@@ -2229,6 +2248,8 @@ func funcCommandLine() {
 }
 
 // Подкоманды командной строки
+// Судя по контексту, подкоманда может быть только одна в строке (одна из определенных в коде)
+// hello foo -enable -name=joe
 func funcCommandLineSubCommand() {
 
 	fmt.Println("\nSubcommands")
@@ -2245,29 +2266,29 @@ func funcCommandLineSubCommand() {
 
 	// Подкоманда ожидается в качестве первого аргумента программы.
 	if len(os.Args) < 2 {
-		fmt.Println("expected 'foo' or 'bar' subcommands")
-		os.Exit(1)
+		fmt.Println("expected 'fork' or 'bar' subcommands")
+	} else {
+
+		// Проверяем, какая подкоманда вызвана.
+		switch os.Args[1] {
+
+		// Для каждой подкоманды мы анализируем ее собственные флаги и имеем доступ к аргументам.
+		case "foo":
+			fooCmd.Parse(os.Args[2:])
+			fmt.Println("subcommand 'foo'")
+			fmt.Println("  enable:", *fooEnable)
+			fmt.Println("  name:", *fooName)
+			fmt.Println("  tail:", fooCmd.Args())
+		case "bar":
+			barCmd.Parse(os.Args[2:])
+			fmt.Println("subcommand 'bar'")
+			fmt.Println("  level:", *barLevel)
+			fmt.Println("  tail:", barCmd.Args())
+		default:
+			fmt.Println("expected 'foo' or 'bar' subcommands")
+		}
 	}
 
-	// Проверяем, какая подкоманда вызвана.
-	switch os.Args[1] {
-
-	// Для каждой подкоманды мы анализируем ее собственные флаги и имеем доступ к аргументам.
-	case "foo":
-		fooCmd.Parse(os.Args[2:])
-		fmt.Println("subcommand 'foo'")
-		fmt.Println("  enable:", *fooEnable)
-		fmt.Println("  name:", *fooName)
-		fmt.Println("  tail:", fooCmd.Args())
-	case "bar":
-		barCmd.Parse(os.Args[2:])
-		fmt.Println("subcommand 'bar'")
-		fmt.Println("  level:", *barLevel)
-		fmt.Println("  tail:", barCmd.Args())
-	default:
-		fmt.Println("expected 'foo' or 'bar' subcommands")
-		//		os.Exit(1)
-	}
 }
 
 // Переменные среды
@@ -2655,9 +2676,6 @@ ctx := context.WithValue(context.Background(), "1", "one") // base context
     fmt.Println(ctx.Value("2"))
 
 See https://blog.golang.org/context for example code for a server that uses Contexts.
-
-
-DefaultHTTPHost = "api-iot.mcs.mail.ru"
 
 Background returns an empty Context. It is never canceled, has no deadline,
 and has no values. Background is typically used in main, init, and tests,
