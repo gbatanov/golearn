@@ -9,8 +9,8 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"runtime"
 
+	"database/sql"
 	"io"
 	"io/fs"
 	"log"
@@ -24,6 +24,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -31,12 +32,10 @@ import (
 	"syscall"
 	"time"
 
-	"database/sql"
-
 	_ "github.com/lib/pq"
 )
 
-const Version string = "v0.2.14"
+const Version string = "v0.2.15"
 
 var Os string = ""
 
@@ -44,60 +43,62 @@ func main() {
 	fmt.Println("Учебный код по Golang", Version)
 
 	getOsParams()
-
-	funcSyslog()
-	funcInput()
-	funcTypes()
-	funcStructures()
-	funcVariables()
-	funcConstant()
-	funcForIfElse()
-	funcSwitch()
-	funcArrays()
-	funcSlices()
-	funcMap()
-	funcRange()
-	funcClosure()
-	funcInterface()
-	funcErrors()
-	funcGorutine()
+	/*
+		funcSyslog()
+		funcInput()
+		funcTypes()
+		funcStructures()
+		funcVariables()
+		funcConstant()
+		funcForIfElse()
+		funcSwitch()
+		funcArrays()
+		funcSlices()
+		funcMap()
+		funcRange()
+		funcClosure()
+		funcInterface()
+		funcErrors()
+		funcGorutine()
+	*/
 	funcChannel()
 	funcSelect()
-	funcTime()
-	funcTimeout()
-	funcTimer()
-	funcCloseChannel()
-	funcWorkerPool()
-	funcAtomic()
-	funcMutex()
-	funcDefer()
-	funcStrings()
-	funcJsonToArray()
+	/*
+		funcTime()
+		funcTimeout()
+		funcTimer()
+		funcCloseChannel()
+		funcWorkerPool()
+		funcAtomic()
+		funcMutex()
+		funcDefer()
+		funcStrings()
+		funcJsonToArray()
 
-	funcNumberParsing()
-	func4byteToFloat()
-	funcUrl()
-	funcPost()
-	funcDb()
-	funcFileWrite()
-	funcFileRead()
-	funcFilePath()
-	funcDir()
-	funcTempFileOrDir()
-	if !true {
-		funcCommandLine()
-	} else {
-		funcCommandLineSubCommand()
-	}
-	funcEnvironment()
-	funcSpawnProcess()
-	funcSignal()
-	//	funcGoWithC()
-	funcBase64()
-	funcRandom()
-	funcExit(0)
-	funcExit(2)
-
+		funcNumberParsing()
+		func4byteToFloat()
+		funcUrl()
+		funcPost()
+		funcDb()
+		funcFileWrite()
+		funcFileRead()
+		funcFilePath()
+		funcDir()
+		funcTempFileOrDir()
+		if !true {
+			funcCommandLine()
+		} else {
+			funcCommandLineSubCommand()
+		}
+		funcEnvironment()
+		funcSpawnProcess()
+		funcSignal()
+		//	funcGoWithC()
+		funcBase64()
+		funcRandom()
+		funcExit(0)
+		funcExit(2)
+	*/
 }
 
 // Функции в Go не имеют аргументов "по умолчанию"
@@ -906,12 +907,12 @@ func Generator() chan int {
 			// select блокируется до тех пор, пока один из его блоков case не будет готов к запуску,
 			// а затем выполняет этот блок. Если сразу несколько блоков могут быть запущены,
 			// то выбирается произвольный.
+			// На Windows нормально, на Linux  возникает panic error
 			select {
 			case <-ch:
 				return
 			case ch <- n: // после закрытия канала этот case не будет выполняться,
 				// поэтому паники от записи в закрытый канал не возникнет
-				// на AstraLinux периодически вызывает panic error "panic: send on closed channel"
 				n++
 			}
 		}
@@ -921,15 +922,19 @@ func Generator() chan int {
 
 func funcSelect() {
 
-	log.Println("\nSelect")
+	fmt.Println("\nSelect")
 
-	if Os != "linux" { // TODO: уточнить по разновидностям Linux
-		// На Астре-Линукс вызывает panic
-		number := Generator()
-		fmt.Println(<-number)
-		fmt.Println(<-number)
-		close(number)
-	}
+	number := Generator()
+
+	c := <-number
+	fmt.Println(c)
+	c = <-number
+	fmt.Println(c)
+	c = <-number
+	fmt.Println(c)
+	time.Sleep(1 * time.Second)
+	close(number)
+
 	//В нашем примере мы будем выбирать между двумя каналами.
 	c1 := make(chan string)
 	c2 := make(chan string)
@@ -978,6 +983,8 @@ func funcSelect() {
 
 	// Еще вариант, сообщения будут печататься одновременно,
 	// несмоторя на разницу в длительности циклов
+	// Первая горутина будет ждать, пока вторая не прочитает из канала,
+	// а вторая будет ждать, пока первая не запишет в канал.
 	var chan1 chan int
 	chan1 = make(chan int)
 	var wg sync.WaitGroup
