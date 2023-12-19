@@ -36,7 +36,7 @@ import (
 	"github.com/matishsiao/goInfo"
 )
 
-const Version string = "v0.2.13"
+const Version string = "v0.2.14"
 
 var Os string = ""
 
@@ -920,8 +920,7 @@ func Generator() chan int {
 			// select блокируется до тех пор, пока один из его блоков case не будет готов к запуску,
 			// а затем выполняет этот блок. Если сразу несколько блоков могут быть запущены,
 			// то выбирается произвольный.
-			// На Windows порядок селектов неважен, на AstraLinux  первым егадо ставить чтение из канала,
-			// иначе возникает panic error
+			// На Windows нормально, на Linux  возникает panic error
 			select {
 			case <-ch:
 				return
@@ -939,8 +938,12 @@ func funcSelect() {
 	fmt.Println("\nSelect")
 
 	number := Generator()
-	fmt.Println(<-number)
-	fmt.Println(<-number)
+	c := <-number
+	fmt.Println(c)
+	c = <-number
+	fmt.Println(c)
+	c = <-number
+	fmt.Println(c)
 	close(number)
 
 	//В нашем примере мы будем выбирать между двумя каналами.
